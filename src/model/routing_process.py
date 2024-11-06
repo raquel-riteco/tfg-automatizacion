@@ -1,3 +1,4 @@
+from typing import List
 
 class OSPF:
     def __init__(self):
@@ -11,4 +12,5 @@ class StaticRoute:
 
 class RoutingProcess:
     def __init__(self):
-      pass
+        self.static_routes = List[StaticRoute]
+        self.ospf_process = None
