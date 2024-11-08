@@ -8,3 +8,7 @@ class DHCP:
         self.pools = pools
         
         
+    def update(self,pools: List[dict], helper_address: IPv4Address = None, excluded_address: List[dict] = None) -> None:
+        self.helper_address = helper_address
+        self.excluded_addresses = excluded_address
+        self.pools = pools
