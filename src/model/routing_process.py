@@ -1,0 +1,55 @@
+from typing import List, cast
+from ipaddress import IPv4Address, IPv4Network
+
+class OSPF:
+    def __init__(self, id: int, bw_cost: int = 10, networks: List[IPv4Network] = None, routing_id: IPv4Address = None, redistribute: bool = False):
+        self.id = id
+        self.bw_cost = bw_cost
+        self.networks = networks
+        self.routing_id = routing_id
+        self.redistribute = redistribute
+        
+        
+    def update(self, id: int, bw_cost: int = 10, networks: List[IPv4Network] = None, routing_id: IPv4Address = None, redistribute: bool = False) -> None:
+        self.id = id
+        self.bw_cost = bw_cost
+        self.networks = networks
+        self.routing_id = routing_id
+        self.redistribute = redistribute
+
+
+
+class StaticRoute:
+    def __init__(self, destination: IPv4Network, next_hop: IPv4Address, admin_dist: int = 1):
+        self.destination = destination
+        self.next_hop = next_hop
+        self.admin_dist = admin_dist
+        
+        
+    def update(self, destination: IPv4Network, next_hop: IPv4Address, admin_dist: int = 1) -> None:
+        self.destination = destination
+        self.next_hop = next_hop
+        self.admin_dist = admin_dist
+
+
+
+class RoutingProcess:
+    def __init__(self, ospf_processes: List[dict] = None, static_routes: List[dict] = None):
+        self.static_routes = List[StaticRoute]
+        for static_route in static_routes:
+            new_static_route = StaticRoute(static_route["destination"], static_route["next_hop"], static_route["admin_dist"])
+            self.static_routes.append(new_static_route)
+        self.ospf_processes = List[OSPF]
+        for ospf_process in ospf_processes:
+            new_ospf_process = OSPF(ospf_process["id"], ospf_process["bw_cost"], ospf_process["networks"], ospf_process["routing_id"], ospf_process["redistribute"])
+            self.ospf_processes.append(new_ospf_process)
+            
+            
+    def update(self, ospf_processes: List[dict] = None, static_routes: List[dict] = None) -> None:
+        for i in range(len(self.static_routes)):
+            static_route = cast(StaticRoute, self.static_routes[i])
+            static_route.update(static_routes[i]["destination"], static_routes[i]["next_hop"], static_routes[i]["admin_dist"])
+        for i in range(len(self.ospf_processes)):
+            ospf_process = cast(OSPF, self.ospf_processes[i])
+            ospf_process.update(ospf_processes[i]["id"], ospf_processes[i]["bw_cost"], ospf_processes[i]["networks"], ospf_processes[i]["routing_id"], ospf_processes[i]["redistribute"])
+        
