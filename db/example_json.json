@@ -1,0 +1,62 @@
+{
+    "R1": {
+        "inventory": {
+            "hostname": "192.168.1.1",
+            "platform": "ios",
+            "groups": [
+                "routers"
+            ]
+        },
+        "connect": {
+
+        },
+        "config": {
+
+        }
+    },
+    "R2": {
+        "inventory": {
+            "hostname": "192.168.1.2",
+            "platform": "ios",
+            "groups": [
+                "routers"
+            ]
+        },
+        "connect": {
+
+        },
+        "config": {
+            
+        }
+    },
+    "SW1": {
+        "inventory": {
+            "hostname": "192.168.1.10",
+            "platform": "ios",
+            "groups": [
+                "routers"
+            ]
+        },
+        "connect": {
+
+        },
+        "config": {
+            
+        }
+    },
+    "SW2": {
+        "inventory": {
+            "hostname": "192.168.1.11",
+            "platform": "ios",
+            "groups": [
+                "routers"
+            ]
+        },
+        "connect": {
+
+        },
+        "config": {
+            
+        }
+    }
+}
