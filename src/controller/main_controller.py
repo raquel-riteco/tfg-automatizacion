@@ -16,9 +16,9 @@ class MainController:
     def start(self) -> None:
         info = dict()
         load_config = self.view.start_menu(info)
-        self.files.save_defaults_file()
+        self.files.save_defaults_file(info["defaults"])
         if load_config:
-            info = self.files.load_config()
+            info = self.files.load_config(info["filename"])
             for device in info:
                 device_info = info[device]
                 device_controller = DeviceController()
