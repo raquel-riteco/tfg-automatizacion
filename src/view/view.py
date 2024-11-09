@@ -1,8 +1,18 @@
 from view_parser import ViewParser
 from router_menu import RouterMenu
 
+from dataclasses import dataclass
 
-EXIT = -1
+
+@dataclass
+class Option:
+    # Main menu options
+    exit:           int = -1
+    add_device:     int = 1
+    remove_device:  int = 2
+    show_network:   int = 3
+    modify_config:  int = 4
+    subnetting:     int = 5
 
 
 class View:
@@ -16,7 +26,7 @@ class View:
         return 0
     
     
-    def main_menu(self) -> int:
+    def main_menu(self, info: dict) -> int:
         return 0
     
     

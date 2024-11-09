@@ -90,19 +90,12 @@ class Files:
         treated_host_info = dict()
         for host in info:
             untreated_host_info = info[host]
-            treated_host_info[host]["hostname"] = untreated_host_info[host]["inventory"]["hostname"]
-            treated_host_info[host]["platform"] = untreated_host_info[host]["inventory"]["platform"]
-            treated_host_info[host]["groups"] = list()
-            treated_host_info[host]["groups"].append(untreated_host_info[host]["inventory"]["group"])
+            treated_host_info[host] = dict()
+            treated_host_info[host]["hostname"] = untreated_host_info["inventory"]["hostname"]
+            treated_host_info[host]["platform"] = untreated_host_info["inventory"]["platform"]
+            treated_host_info[host]["groups"] = untreated_host_info["inventory"]["groups"]
             
         self.__write_yaml__("config\inventory\hosts.yaml", treated_host_info)
         # Return other info
-        return untreated_host_info
+        return info
         
-            
-            
-if __name__=="__main__":
-    files = Files()
-    info = files.__read_json__("db\example_json.json")
-    files.__write_yaml__("db\example_yaml.yaml", info)
-            
