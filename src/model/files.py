@@ -90,10 +90,12 @@ class Files:
         treated_host_info = dict()
         for host in info:
             untreated_host_info = info[host]
+            # Get info to save into hosts file in inventory
             treated_host_info[host] = dict()
             treated_host_info[host]["hostname"] = untreated_host_info["inventory"]["hostname"]
             treated_host_info[host]["platform"] = untreated_host_info["inventory"]["platform"]
             treated_host_info[host]["groups"] = untreated_host_info["inventory"]["groups"]
+            
             
         self.__write_yaml__("config\inventory\hosts.yaml", treated_host_info)
         # Return other info

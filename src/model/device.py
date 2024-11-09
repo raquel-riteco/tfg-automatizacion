@@ -2,8 +2,8 @@
 from typing import List, cast
 from ipaddress import IPv4Address
 
-from security import Security
-from l3_interface import L3Interface
+from model.security import Security
+from model.l3_interface import L3Interface
 
 class Device:
     def __init__(self, hostname: str, ip_mgmt: IPv4Address, iface_mgmt: str, security: dict, interfaces: List[dict], users: List[dict] = None, banner: str = None):

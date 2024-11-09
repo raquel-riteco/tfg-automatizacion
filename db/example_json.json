@@ -8,7 +8,10 @@
             ]
         },
         "connect": {
-
+            "device_type": "router",
+            "name": "R1",
+            "ip_mgmt": "192.168.1.1",
+            "iface_mgmt": "f0/1"
         },
         "config": {
 

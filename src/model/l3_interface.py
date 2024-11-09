@@ -1,5 +1,7 @@
-from interface import Interface
 from ipaddress import IPv4Address
+
+from model.interface import Interface
+
 
 class L3Interface(Interface):
     def __init__(self, name: str, is_up: bool, description: str = None, ip_address: IPv4Address = None, ospf: dict = None, l3_redundancy: dict = None):

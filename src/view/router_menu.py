@@ -1,4 +1,4 @@
-from device_menu import DeviceMenu
+from view.device_menu import DeviceMenu
 
 class RouterMenu(DeviceMenu):
     def __init__(self):

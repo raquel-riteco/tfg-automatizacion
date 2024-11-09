@@ -1,8 +1,8 @@
 from typing import List
 
-from src.model.files import Files
-from src.view.view import View, Option
-from device_controller import DeviceController
+from model.files import Files
+from view.view import View, Option
+from controller.device_controller import DeviceController
 
 
 

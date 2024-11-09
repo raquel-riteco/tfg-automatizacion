@@ -1,5 +1,5 @@
-from src.model.connector import Connector
-from src.model.router import Router
+from model.connector import Connector
+from model.router import Router
 
 class DeviceController:
     def __init__(self):

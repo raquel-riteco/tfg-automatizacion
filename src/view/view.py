@@ -1,8 +1,10 @@
-from view_parser import ViewParser
-from router_menu import RouterMenu
+from view.view_parser import ViewParser
+from view.router_menu import RouterMenu
 
 from os import listdir
 from dataclasses import dataclass
+
+MAIN_MENU = ["MAIN MENU", "Add device", "Remove device", "Show network", "Modify config", "Subnetting", "Exit"]
 
 
 @dataclass
@@ -21,10 +23,43 @@ class View:
         self.parser = ViewParser()
         self.router_menu = RouterMenu()
         
-    
+        
+    def __show_menu__(self, menu: list) -> int:
+        """
+        Displays a menu from a given list and returns the selected option as an integer.
+        If the user selects the last option, the function returns EXIT.
+        
+        Args:
+            menu (list): List containing menu options where the first element is the menu title.
+
+        Returns:
+            int: The selected menu option or EXIT if the last option is chosen.
+        """
+        
+        option = 0
+        options = Option()
+        
+        while(True):
+            print(f"{menu[0]}\n")
+            for i in range(1, len(menu)):
+                print(f"\t{i}. {menu[i]}")
+            option = input(f"\nEnter option: ")
+            try:
+                option = int(option)
+                if (option < 1 or option > len(menu) - 1):
+                    print(self.parser.parse_error("Invalid option."))
+                elif (option == len(menu) - 1):
+                    return options.exit
+                else:
+                    return option
+            except ValueError:
+                option = 0
+                print(self.parser.parse_error("Invalid option."))
+                
+                
+                
     # Returns 0 if no load config, 1 if load config    
     def start_menu(self, info: dict) -> int:
-        info = dict()
         info["defaults"] = dict()
         path = "db/"
         string = ""
@@ -66,7 +101,10 @@ class View:
     
     
     def main_menu(self, info: dict) -> int:
-        return 0
+        # Get main menu option
+        option = self.__show_menu__(MAIN_MENU)
+        
+        return option
     
     
     def goodbye(self) -> None:
