@@ -6,7 +6,7 @@ from security import Security
 from l3_interface import L3Interface
 
 class Device:
-    def __init__(self, hostname: str, ip_mgmt: IPv4Address, security: dict, interfaces: List[dict], users: List[dict] = None, banner: str = None):
+    def __init__(self, hostname: str, ip_mgmt: IPv4Address, iface_mgmt: str, security: dict, interfaces: List[dict], users: List[dict] = None, banner: str = None):
         self.security = Security(security["is_encrypted"], security["console_by_password"], security["vty_by_password"], security["protocols"])
         self.interfaces = List[L3Interface]
         for interface in interfaces:
@@ -14,6 +14,7 @@ class Device:
             self.interfaces.append(new_interface)
         self.hostname = hostname
         self.ip_mgmt = ip_mgmt
+        self.iface_mgmt = iface_mgmt
         self.users = users
         self.banner = banner
         
