@@ -3,7 +3,7 @@ from view.router_menu import RouterMenu
 
 from os import listdir
 from dataclasses import dataclass
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv4Network
 from typing import Tuple
 
 MAIN_MENU = ["MAIN MENU", "Add device", "Remove device", "Show network", "Modify config", "Subnetting", "Exit"]
@@ -168,7 +168,7 @@ class View:
             i += 1
     
     
-    def __get_device_pos__(self, devices: list, action: str) -> int:
+    def __get_device_by__(self, devices: list, action: str) -> int | dict:
         """
         Prompts the user to select a device by ID, name, or management IP address and returns the index of the device in the list.
         If the user types 'exit', the function returns EXIT.
@@ -178,9 +178,16 @@ class View:
             action (str): The action to be performed (e.g., "Delete", "Config").
 
         Returns:
-            int: The index of the selected device in the list or EXIT if no device is found or the user exits.
+            int: EXIT if the user exits during input.
+            dict: A dictionary containing the new device information with keys:
+                - "action_by": id, name or mgmt_ip
+                - "identification": or
+                    - id: int
+                    - name: str
+                    - mgmt_ip: IPv4Address
         """
         options = Option()
+        info = dict()
         self.__show_devices__(devices)
         if len(devices) == 0:
             print(self.parser.parse_error("There are no devices."))
@@ -192,14 +199,16 @@ class View:
             match string.lower():
                 case "id":
                     string = input("Enter id: ")
-                    for i in range(len(devices)):
-                        if devices[i]["device_id"] == string:
-                            found = i
-                            
-                    if found == -1:
+                    try:
+                        found = int(string)
+                        if found < 1 | found > len(devices):
+                            print(self.parser.parse_error("This id does not exist."))
+                        else:
+                            info["action_by"] = "id"
+                            info["identification"] = found
+                            return info
+                    except ValueError:
                         print(self.parser.parse_error("This id does not exist."))
-                    else:
-                        return found
                                                 
                 case "name":
                     string = input("Enter name: ")  
@@ -210,18 +219,26 @@ class View:
                     if found == -1:
                         print(self.parser.parse_error("This name does not exist."))
                     else:
-                        return found
+                        info["action_by"] = "name"
+                        info["identification"] = string
+                        return info
                     
                 case "ip":
                     string = input("Enter management IP address: ")
-                    for i in range(len(devices)):
-                        if devices[i]["mgmt_ip"] == string:
-                            found = i
-                            
-                    if found == -1:
-                        print(self.parser.parse_error("This management IP address does not exist."))
-                    else:
-                        return found 
+                    try:
+                        ip = IPv4Address(string)
+                        for i in range(len(devices)):
+                            if devices[i]["mgmt_ip"] == ip:
+                                found = i
+                                
+                        if found == -1:
+                            print(self.parser.parse_error("This management IP address does not exist."))
+                        else:
+                            info["action_by"] = "mgmt_ip"
+                            info["identification"] = ip
+                            return info
+                    except: 
+                        print(self.parser.parse_error("The IP address is not valid."))
                     
                 case "exit":
                     print(self.parser.parse_warning("Exit detected, operation not completed."))
@@ -231,7 +248,7 @@ class View:
                     print(self.parser.parse_error("Invalid option."))
     
     
-    def __remove_device__(self, devices: list) -> int:
+    def __remove_device__(self, devices: list) -> int | dict:
         """
         Prompts the user to select a device to remove and returns the index of the device in the list.
         If the user exits, the function returns EXIT.
@@ -240,11 +257,128 @@ class View:
             devices (list): List of existing device dictionaries.
 
         Returns:
-            int: The index of the device to be removed or EXIT if the user exits.
+            int: EXIT if the user exits during input.
+            dict: A dictionary containing the new device information with keys:
+                - "action_by": id, name or mgmt_ip
+                - "identification": or
+                    - id: int
+                    - name: str
+                    - mgmt_ip: IPv4Address
         """
         
-        return self.__get_device_pos__(devices, "Delete")
+        return self.__get_device_by__(devices, "Delete")
                  
+    
+    def __show_network__(self, devices: list) -> None:
+        """
+        Displays the current network, showing all connected devices.
+
+        Args:
+            devices (list): List of existing device dictionaries.
+        """
+        
+        # TODO: For now only shows connected devices, must think about showing devices' connections
+        
+        self.__show_devices__(devices)             
+                 
+                
+    def __modify_config__(self, devices: list) -> int | dict: 
+        """
+        Prompts the user to select a device to configure and returns the index of the device in the list.
+        If the user exits, the function returns EXIT.
+
+        Args:
+            devices (list): List of existing device dictionaries.
+
+        Returns:
+            int: EXIT if the user exits during input.
+            dict: A dictionary containing the new device information with keys:
+                - "action_by": id, name or mgmt_ip
+                - "identification": or
+                    - id: int
+                    - name: str
+                    - mgmt_ip: IPv4Address
+        """
+          
+        return self.__get_device_by__(devices, "Config")
+    
+    
+    def __ask_subnetting__(self) -> int | dict:
+        """
+        Prompts the user for subnetting details and returns the information as a dictionary.
+        If the user exits, the function returns EXIT.
+
+        Returns:
+            int: EXIT if the user exits during input.
+            dict: A dictionary containing subnetting information with keys:
+                - network (IPv4Network): The network address.
+                - num_networks (int): The number of subnets.
+                - list_num_devices (list): List of the number of devices per subnet.
+        """
+        
+        info = dict()
+        network_addr = str()
+        options = Option()
+        
+        while True:
+            string = input("Enter network: ")
+            
+            if string.lower() == "exit":
+                print(self.parser.parse_warning("Exit detected, operation not completed."))
+                return options.exit
+            try:
+                ip = IPv4Network(string)
+                network_addr = ip
+                break
+                
+            except ValueError:
+                print(self.parser.parse_error("Invalid network address."))
+                
+        while True:
+            string = input("Enter netmask: ")
+            
+            if string.lower() == "exit":
+                print(self.parser.parse_warning("Exit detected, operation not completed."))
+                return options.exit
+            try:
+                network = IPv4Network(f"{network_addr}/{string}", strict=False)
+                info["network"] = network
+                break
+                
+            except ValueError:
+                print(self.parser.parse_error("Invalid network mask for network address."))  
+            
+        while True:
+            string = input("Enter number of networks: ")
+            
+            if string.lower() == "exit":
+                print(self.parser.parse_warning("Exit detected, operation not completed."))
+                return options.exit
+            try:
+                int(string)
+                info["num_networks"] = int(string)
+                break
+            except ValueError:
+                print(self.parser.parse_error("Invalid number."))
+        
+        info["list_num_devices"] = list()
+                
+        for i in range(info["num_networks"]):
+            while True:
+                string = input(f"Enter number of devices in network {i + 1}: ")
+                
+                if string.lower() == "exit":
+                    print(self.parser.parse_warning("Exit detected, operation not completed."))
+                    return options.exit
+                try:
+                    int(string)
+                    info["list_num_devices"].append(int(string))
+                    break
+                except ValueError:
+                    print(self.parser.parse_error("Invalid number."))
+                    
+        return info
+                
                 
     def start_menu(self) -> Tuple[int, dict]:
         """
@@ -322,13 +456,19 @@ class View:
                     option = 0
 
             case 3:
-                pass
+                self.__show_network__(devices)
             
             case 4:
-                pass
+                # Configure device
+                info = self.__modify_config__(devices)
+                if info == options.exit:
+                    option = 0
             
             case 5:
-                pass
+                # Subnetting
+                info = self.__ask_subnetting__(devices)
+                if info == options.exit:
+                    option = 0
             
         return option, info
     
