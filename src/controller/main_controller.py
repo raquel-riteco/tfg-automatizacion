@@ -35,8 +35,7 @@ class MainController:
         Returns:
             None
         """
-        info = dict()
-        load_config = self.view.start_menu(info)
+        load_config, info = self.view.start_menu()
         self.files.save_defaults_file(info["defaults"])
         if load_config:
             info = self.files.load_config(info["filename"])
@@ -51,8 +50,8 @@ class MainController:
     def run(self) -> None:
         option = 0
         options = Option()
-        info = dict()
         while option != options.exit:  
-            option = self.view.main_menu(info, self.__get_devices_list__())
+            option, info = self.view.main_menu(self.__get_devices_list__())
+            pass
         
         self.view.goodbye()
