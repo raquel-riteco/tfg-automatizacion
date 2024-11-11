@@ -12,6 +12,24 @@ class L3Interface(Interface):
         
         
     def update(self,  name: str, is_up: bool, description: str = None, ip_address: IPv4Address = None, ospf: dict = None, l3_redundancy: dict = None) -> None:
+        """
+        Updates the extended interface attributes, including name, status, description, IP address,
+        OSPF configuration, and Layer 3 redundancy settings.
+
+        Inherits basic update functionality for name, status, and description, and sets additional
+        attributes like IP address, OSPF configuration, and Layer 3 redundancy.
+
+        Args:
+            name (str): The name of the interface.
+            is_up (bool): The operational status of the interface (True if up, False if down).
+            description (str, optional): A description for the interface.
+            ip_address (IPv4Address, optional): The IP address assigned to the interface.
+            ospf (dict, optional): OSPF (Open Shortest Path First) configuration details.
+            l3_redundancy (dict, optional): Layer 3 redundancy settings, such as VRRP or HSRP configuration.
+
+        Returns:
+            None
+        """
         super().update(name, is_up, description)
         self.ip_address = ip_address
         self.ospf = ospf

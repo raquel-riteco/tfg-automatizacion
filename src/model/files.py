@@ -74,17 +74,31 @@ class Files:
         Returns:
             None
         """
-        with open("config\inventory\groups.yaml", 'w') as file:
+        with open("config/inventory/groups.yaml", 'w') as file:
             pass 
-        with open("config\inventory\hosts.yaml", 'w') as file:
+        with open("config/inventory/hosts.yaml", 'w') as file:
             pass 
-        with open("config\inventory\defaults.yaml", 'w') as file:
+        with open("config/inventory/defaults.yaml", 'w') as file:
             pass 
         
-        self.__write_yaml__("config\inventory\defaults.yaml", info)
+        self.__write_yaml__("config/inventory/defaults.yaml", info)
         
     
     def load_config(self, filename: str) -> dict:
+        """
+        Loads configuration data from a specified JSON file, processes host information,
+        and writes relevant details to an inventory file in YAML format.
+
+        Reads the JSON file to retrieve host configurations, processes specific fields 
+        (hostname, platform, and groups) to create a treated host dictionary, and saves this 
+        data into an inventory file. Returns the full configuration data.
+
+        Args:
+            filename (str): Path to the JSON file containing configuration information.
+
+        Returns:
+            dict: The complete configuration data loaded from the JSON file.
+        """
         info = self.__read_json__(filename)
         # Write hosts info into inventory/hosts.yaml
         treated_host_info = dict()
@@ -97,7 +111,7 @@ class Files:
             treated_host_info[host]["groups"] = untreated_host_info["inventory"]["groups"]
             
             
-        self.__write_yaml__("config\inventory\hosts.yaml", treated_host_info)
+        self.__write_yaml__("config/inventory/hosts.yaml", treated_host_info)
         # Return other info
         return info
         
