@@ -1,3 +1,4 @@
+from model.subnetting import Subnetting
 from view.view_parser import ViewParser
 from view.router_menu import RouterMenu
 
@@ -328,7 +329,7 @@ class View:
                 return options.exit
             try:
                 ip = IPv4Network(string)
-                network_addr = ip
+                network_addr = string
                 break
                 
             except ValueError:
@@ -341,6 +342,8 @@ class View:
                 print(self.parser.parse_warning("Exit detected, operation not completed."))
                 return options.exit
             try:
+                if "/" in string:
+                    string = string.split("/")[1]
                 network = IPv4Network(f"{network_addr}/{string}", strict=False)
                 info["network"] = network
                 break
@@ -378,8 +381,37 @@ class View:
                     print(self.parser.parse_error("Invalid number."))
                     
         return info
-                
-                
+
+    def __display_subnetting__(self, info, subnets):
+        """
+        Displays the original subnetting input and the resulting subnets in a clean, readable format.
+
+        Args:
+            subnets (list of IPv4Network): List of generated subnets.
+        """
+        print("\n=== Subnetting Summary ===\n")
+
+        base_net = info["network"]
+        print(f"Base Network      : {base_net.network_address}")
+        print(f"Base Netmask      : /{base_net.prefixlen}")
+        print(f"Total Subnets     : {info['num_networks']}")
+        print(f"Devices per Subnet: {info['list_num_devices']}\n")
+
+        print("Generated Subnets:")
+        print("------------------")
+        for i, subnet in enumerate(subnets):
+            hosts = list(subnet.hosts())
+            first_host = hosts[0] if hosts else "N/A"
+            last_host = hosts[-1] if hosts else "N/A"
+
+            print(f"Subnet {i + 1}:")
+            print(f"  Network Address : {subnet.network_address}")
+            print(f"  Netmask         : {subnet.netmask} (/ {subnet.prefixlen})")
+            print(f"  Broadcast Addr  : {subnet.broadcast_address}")
+            print(f"  First Host      : {first_host}")
+            print(f"  Last Host       : {last_host}")
+            print(f"  Total Usable IPs: {subnet.num_addresses - 2}\n")
+
     def start_menu(self) -> Tuple[int, dict]:
         """
         Displays a menu to prompt the user for necessary configuration details, including a username, password, 
@@ -466,10 +498,16 @@ class View:
             
             case 5:
                 # Subnetting
-                info = self.__ask_subnetting__(devices)
+                info = self.__ask_subnetting__()
                 if info == options.exit:
                     option = 0
-            
+                else:
+                    subnetting = Subnetting(info)
+                    try:
+                        result_subnetting = subnetting.generate_subnetting()
+                        self.__display_subnetting__(info, result_subnetting)
+                    except ValueError as e:
+                        print(self.parser.parse_error(e.args[0]))
         return option, info
     
     
