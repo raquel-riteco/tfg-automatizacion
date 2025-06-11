@@ -25,10 +25,11 @@ class DeviceController:
         """
         connector_info = self.connector.get_device_info()
         if device_info["device_type"] == "router":
+            '''
             self.device = Router(device_info["name"], device_info["mgmt_ip"], device_info["mgmt_iface"], 
                                  connector_info["security"], connector_info["interfaces"], connector_info["users"], 
                                  connector_info["banner"], connector_info["dhcp"], connector_info["routing_process"])
-        
+            '''
         
     def configure_device(self, config_info: dict) -> None:
         pass
