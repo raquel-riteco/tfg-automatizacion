@@ -74,14 +74,14 @@ class Files:
         Returns:
             None
         """
-        with open("config/inventory/groups.yaml", 'w') as file:
+        with open("inventory/groups.yaml", 'w') as file:
             pass 
-        with open("config/inventory/hosts.yaml", 'w') as file:
+        with open("inventory/hosts.yaml", 'w') as file:
             pass 
-        with open("config/inventory/defaults.yaml", 'w') as file:
-            pass 
-        
-        self.__write_yaml__("config/inventory/defaults.yaml", info)
+        with open("inventory/defaults.yaml", 'w') as file:
+            pass
+
+        self.__write_yaml__("inventory/defaults.yaml", info)
         
     
     def load_config(self, filename: str) -> dict:
@@ -102,6 +102,7 @@ class Files:
         info = self.__read_json__(filename)
         # Write hosts info into inventory/hosts.yaml
         treated_host_info = dict()
+        groups = dict()
         for host in info:
             untreated_host_info = info[host]
             # Get info to save into hosts file in inventory
@@ -109,9 +110,14 @@ class Files:
             treated_host_info[host]["hostname"] = untreated_host_info["inventory"]["hostname"]
             treated_host_info[host]["platform"] = untreated_host_info["inventory"]["platform"]
             treated_host_info[host]["groups"] = untreated_host_info["inventory"]["groups"]
+            for new_group in treated_host_info[host]["groups"]:
+                if new_group not in groups:
+                    current_group = dict()
+                    current_group["group"] = new_group
+                    groups[new_group] = current_group
             
-            
-        self.__write_yaml__("config/inventory/hosts.yaml", treated_host_info)
+        self.__write_yaml__("inventory/groups.yaml", groups)
+        self.__write_yaml__("inventory/hosts.yaml", treated_host_info)
         # Return other info
         return info
         
