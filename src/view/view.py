@@ -107,7 +107,7 @@ class View:
             
         while True:
             found = 0
-            string = input(f"Enter device name (default: {info["device_type"]}{num}): ")
+            string = input(f"Enter device name (default: {info['device_type']}{num}): ")
             if string.lower() == "exit":
                 print(self.parser.parse_warning("Exit detected, operation not completed."))
                 return options.exit
@@ -122,7 +122,7 @@ class View:
                     info["device_name"] = string
                     break
             else: 
-                info["device_name"] = f"{info["device_type"]}{num}"
+                info["device_name"] = f"{info['device_type']}{num}"
                 break
         
         
@@ -165,7 +165,7 @@ class View:
         print("ID\tNAME\tTYPE\tMGMT IFACE\tMGMT IP ADDRESS")
         i = 1
         for d in devices:
-            print(f"{i}.\t{d["device_name"]}\t{d["device_type"]}\t{d["mgmt_iface"]}\t{d["mgmt_ip"]}")
+            print(f"{i}.\t{d['device_name']}\t{d['device_type']}\t{d['mgmt_iface']}\t{d['mgmt_ip']}")
             i += 1
     
     
@@ -514,4 +514,9 @@ class View:
     def goodbye(self) -> None:
         print("\nGOODBYE!\n")
         
-        
+    def print_error(self, msg: str) -> None:
+        print(self.parser.parse_error(msg))
+
+    def print_debug(self, msg: str) -> None:
+        print(self.parser.parse_debug(msg))
+

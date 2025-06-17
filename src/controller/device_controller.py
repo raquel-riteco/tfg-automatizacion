@@ -1,9 +1,12 @@
 from model.connector import Connector
 from model.router import Router
+from view.view import View
 
 class DeviceController:
     def __init__(self):
+        self.device = None
         self.connector = Connector()
+        self.view = View()
         
         
     def create_device(self, device_info: dict) -> None:
@@ -23,13 +26,17 @@ class DeviceController:
         Returns:
             None
         """
-        connector_info = self.connector.get_device_info()
+        try:
+            connector_info = self.connector.get_device_info(device_info)
+        except RuntimeError as e:
+            self.view.print_error(str(e))
+
         if device_info["device_type"] == "router":
-            '''
+
             self.device = Router(device_info["name"], device_info["mgmt_ip"], device_info["mgmt_iface"], 
                                  connector_info["security"], connector_info["interfaces"], connector_info["users"], 
                                  connector_info["banner"], connector_info["dhcp"], connector_info["routing_process"])
-            '''
+            self.view.print_debug("STOP")
         
     def configure_device(self, config_info: dict) -> None:
         pass
