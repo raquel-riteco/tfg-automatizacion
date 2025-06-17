@@ -8,7 +8,7 @@ from model.l3_interface import L3Interface
 class Device:
     def __init__(self, hostname: str, mgmt_ip: IPv4Address, mgmt_iface: str, security: dict, interfaces: List[dict], users: List[dict] = None, banner: str = None):
         self.security = Security(security["is_encrypted"], security["console_by_password"], security["vty_by_password"], security["protocols"])
-        self.interfaces = List[L3Interface]
+        self.interfaces = []
         for interface in interfaces:
             new_interface = L3Interface(interface["name"], interface["is_up"], interface["description"], interface["ip_address"], interface["ospf"], interface["l3_redundancy"])
             self.interfaces.append(new_interface)

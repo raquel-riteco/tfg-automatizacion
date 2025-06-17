@@ -517,3 +517,6 @@ class View:
     def print_error(self, msg: str) -> None:
         print(self.parser.parse_error(msg))
 
+    def print_debug(self, msg: str) -> None:
+        print(self.parser.parse_debug(msg))
+
