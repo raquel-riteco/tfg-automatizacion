@@ -382,14 +382,13 @@ class RouterMenu(DeviceMenu):
 
         return self.__show_menu__(R_ROUTING_CONFIG)
 
-    def router_static_routing(self, device: dict, devices: list) -> int | dict:
+    def router_static_routing(self, device: dict) -> int | dict:
         """
         Configure static routing for the specified device.
 
         Args:
             device (dict): The current device information.
                 - "ip_table": dict  # IP routing table for the device.
-            devices (list): List of devices in the network.
 
         Returns:
             int: EXIT if the operation is exited.
@@ -435,17 +434,8 @@ class RouterMenu(DeviceMenu):
                     info["next_hop"] = ip.ip_address(string)
                     break
                 except ValueError:
-                    found = 0
-                    for dev in devices:
-                        for iface in dev["iface_list"]:
-                            if string == iface["iface_name"]:
-                                found = 1
+                    print(parse_error("Invalid next hop."))
 
-                    if found == 0:
-                        print(parse_error("Invalid next hop."))
-                    else:
-                        info["next_hop"] = string
-                        break
 
         while True:
             string = input("Enter admin distance (default is 1): ")
@@ -543,96 +533,232 @@ class RouterMenu(DeviceMenu):
         """
         return self.__show_menu__(R_ROUTING_OSPF_IFACE)
 
-    def router_routing_ospf_iface_hello(self, device: dict, iface_list: list) -> int | dict:
-        """
-        Configure OSPF hello interval for the specified device.
-
-        Args:
-            device (dict): The current device information.
-            iface_list (list): List of iface dictionaries to modify
-                - "hello_interval": int  # Current OSPF hello interval.
-                - "iface_name": str      # Name of interface
-
-        Returns:
-            int: EXIT if the operation is exited.
-            dict: Updated OSPF hello interval.
-                - "hello_interval": int  # Configured OSPF hello interval.
-        """
-
-        info = dict()
+    def router_routing_ospf_iface_hello(self, iface_list: list) -> int | list:
         for iface in iface_list:
-            print(f"Hello interval for {iface['iface_name']} is: {iface['hello_interval']}")
-        while True:
-            string = input("Enter hello interval (default 10s): ")
-            if string == "exit":
-                print(parse_warning("Exit detected, operation not completed."))
-                return EXIT
-            elif string:
-                try:
-                    num = int(string)
-                    info["hello_interval"] = num
-                    return info
-                except ValueError:
-                    print(parse_error("Invalid number."))
+            print(f"Hello interval for {iface['iface_name']} is: {iface['ospf']['hello_interval']}")
+            while True:
+                string = input("Enter hello interval (default 10s): ")
+                if string.lower() == "exit":
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                elif string:
+                    try:
+                        num = int(string)
+                        if num < 1 or num > 65535:
+                            print(parse_error("Invalid number, must be between 1 and 65535, both included."))
+                        else:
+                            iface['ospf']["hello_interval"] = num
+                            break
+                    except ValueError:
+                        print(parse_error("Invalid number, must be between 1 and 65535, both included."))
+        return iface_list
 
-    def router_routing_ospf_iface_dead(self, device: dict, iface_list: list) -> int | dict:
-        """
-        Configure OSPF dead interval for the specified device.
-
-        Args:
-            device (dict): The current device information.
-            iface_list (list): List of iface dictionaries to modify
-                - "dead_interval": int  # Current OSPF dead interval.
-                - "iface_name": str      # Name of interface
-
-        Returns:
-            int: EXIT if the operation is exited.
-            dict: Updated OSPF dead interval.
-                - "dead_interval": int  # Configured OSPF dead interval.
-        """
-
-        info = dict()
+    def router_routing_ospf_iface_dead(self, iface_list: list) -> int | list:
         for iface in iface_list:
-            print(f"Dead interval for {iface['iface_name']} is: {device['dead_interval']}")
-        while True:
-            string = input("Enter dead interval (default 40s): ")
-            if string == "exit":
-                print(parse_warning("Exit detected, operation not completed."))
-                return EXIT
-            elif string:
-                try:
-                    num = int(string)
-                    info["dead_interval"] = num
-                    return info
-                except ValueError:
-                    print(parse_error("Invalid number."))
+            print(f"Dead interval for {iface['iface_name']} is: {iface['ospf']['dead_interval']}")
+            while True:
+                string = input("Enter dead interval (default 40s): ")
+                if string.lower() == "exit":
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                elif string:
+                    try:
+                        num = int(string)
+                        if num < 1 or num > 65535:
+                            print(parse_error("Invalid number, must be between 1 and 65535, both included."))
+                        else:
+                            iface['ospf']["dead_interval"] = num
+                            break
+                    except ValueError:
+                        print(parse_error("Invalid number, must be between 1 and 65535, both included."))
+        return iface_list
 
-    def router_routing_ospf_iface_passive(self, device: dict, iface_list: list) -> int | dict:
-        pass
+    def router_routing_ospf_iface_passive(self, iface_list: list) -> int | list:
+        for iface in iface_list:
+            if iface['ospf']['is_passive']:
+                print(f"Interface {iface['iface_name']} is passive.")
+            else:
+                print(f"Interface {iface['iface_name']} is NOT passive.")
+            while True:
+                string = input("Set this iface as passive (y/n): ")
+                if string.lower() == "exit":
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                elif string:
+                    if string.lower() == 'y':
+                        iface['ospf']['is_passive'] = True
+                        break
+                    elif string.lower() == 'n':
+                        iface['ospf']['is_passive'] = False
+                        break
+                    else:
+                        print(parse_error("Invalid option."))
+        return iface_list
 
-    def router_routing_ospf_iface_priority(self, device: dict, iface_list: list) -> int | dict:
-        pass
+    def router_routing_ospf_iface_priority(self, iface_list: list) -> int | list:
+        for iface in iface_list:
+            print(f"Priority for {iface['iface_name']} is: {iface['ospf']['priority']}")
+            while True:
+                string = input("Enter priority (default 40s): ")
+                if string.lower() == "exit":
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                elif string:
+                    try:
+                        num = int(string)
+                        if num < 0 or num > 255:
+                            print(parse_error("Invalid number, must be between 0 and 255, both included."))
+                        else:
+                            iface['ospf']["priority"] = num
+                            break
+                    except ValueError:
+                        print(parse_error("Invalid number, must be between 0 and 255, both included."))
+        return iface_list
 
-    def router_routing_ospf_iface_cost(self, device: dict, iface_list: list) -> int | dict:
-        pass
+    def router_routing_ospf_iface_cost(self, iface_list: list) -> int | list:
+        for iface in iface_list:
+            print(f"Cost for {iface['iface_name']} is: {iface['ospf']['cost']}")
+            while True:
+                string = input("Enter cost (default 1): ")
+                if string.lower() == "exit":
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                elif string:
+                    try:
+                        num = int(string)
+                        if num < 1 or num > 65535:
+                            print(parse_error("Invalid number, must be between 1 and 65535, both included."))
+                        else:
+                            iface['ospf']["cost"] = num
+                            break
+                    except ValueError:
+                        print(parse_error("Invalid number, must be between 1 and 65535, both included."))
+        return iface_list
 
-    def router_routing_ospf_iface_point_to_point(self, device: dict, iface_list: list) -> int | dict:
-        pass
+    def router_routing_ospf_iface_point_to_point(self, iface_list: list) -> int | list:
+        for iface in iface_list:
+            if iface['ospf']['is_pint_to_point']:
+                print(f"Interface {iface['iface_name']} is point-to-point.")
+            else:
+                print(f"Interface {iface['iface_name']} is NOT point-to-point.")
+            while True:
+                string = input("Set this iface as point-to-point (y/n): ")
+                if string.lower() == "exit":
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                elif string:
+                    if string.lower() == 'y':
+                        iface['ospf']['is_pint_to_point'] = True
+                        break
+                    elif string.lower() == 'n':
+                        iface['ospf']['is_pint_to_point'] = False
+                        break
+                    else:
+                        print(parse_error("Invalid option."))
+        return iface_list
 
     def show_router_routing_ospf_process(self) -> int:
         return self.__show_menu__(R_ROUTING_OSPF_PROCESS)
 
     def router_routing_ospf_process_reference(self, device: dict) -> int | dict:
-        pass
+        print(f"Device OSPF auto-cost reference bandwidth is: {device['ospf']['reference-bandwidth']}")
+        while True:
+            string = input("Enter reference-bandwidth (default 100 Mbps): ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            elif string:
+                try:
+                    num = int(string)
+                    if num < 1 or num > 4294967:
+                        print(parse_error("Invalid number, must be between 1 and 4294967, both included."))
+                    else:
+                        device['ospf']['reference-bandwidth'] = num
+                        return device
+                except ValueError:
+                    print(parse_error("Invalid number, must be between 1 and 4294967, both included."))
 
     def router_routing_ospf_process_network(self, device: dict) -> int | dict:
-        pass
+        print("Device OSPF networks:")
+        for network in device['ospf']['networks']:
+            print(f"{network}")
+
+        info = dict()
+        while True:
+            string = input("Enter network ip address: ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            elif string:
+                try:
+                    ip = ip.ip_address(string)
+                    info['network_ip'] = string
+                    break
+                except ValueError:
+                    print(parse_error("Invalid IP address."))
+
+        while True:
+            string = input("Enter network wildcard-mask: ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            elif string:
+                try:
+                    network = ip.ip_network(f"{ip}/{string}")
+                    info['network_wildcard'] = string
+                    break
+                except ValueError:
+                    print(parse_error("Invalid wildcard-mask."))
+
+        while True:
+            string = input("Enter network area id: ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            elif string:
+                try:
+                    info['network_area'] = int(string)
+                    break
+                except ValueError:
+                    print(parse_error("Invalid wildcard-mask."))
+
+        return info
 
     def router_routing_ospf_process_id(self, device: dict) -> int | dict:
-        pass
+        print(f"Device OSPF router-id: {device['ospf']['router_id']}")
+        while True:
+            string = input("Enter router-id: ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            elif string:
+                try:
+                    ip = ip.ip_address(string)
+                    device['ospf']['router_id'] = string
+                    break
+                except ValueError:
+                    print(parse_error("Invalid router-id, this must be a valid IP address."))
 
     def router_routing_ospf_process_redist(self, device: dict) -> int | dict:
-        pass
+        if device['ospf']['is_redistribute']:
+            print(f"Device OSPF redistribution is ENABLED.")
+        else:
+            print(f"Device OSPF redistribution is NOT ENABLED.")
+        while True:
+            string = input("Set device OSPF to redistribute (y/n): ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            elif string:
+                if string.lower() == 'y':
+                    device['ospf']['is_redistribute'] = True
+                    break
+                elif string.lower() == 'n':
+                    device['ospf']['is_redistribute'] = False
+                    break
+                else:
+                    print(parse_error("Invalid option."))
+        return device
 
 
 
