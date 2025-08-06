@@ -1,28 +1,42 @@
 from view.device_menu import DeviceMenu
+from view.view import Option
 from view.view_parser import parse_error, parse_warning
 
 import ipaddress as ip
 
-R_CONFIG_MENU = ["ROUTER CONFIG MENU", "Basic config", "L3 iface config", "Redundancy config (HSRP)", "Routing config", "DHCP config", "ACL config", "Security config", "Exit"]
-R_L3_IFACE_CONFIG = ["ROUTER L3 IFACE CONFIG MENU", "Modify IP address", "Add subinterface", "Add description", "Exit"]
+R_CONFIG_MENU = ["ROUTER CONFIG MENU", "Basic config", "L3 iface config", "Redundancy config (HSRP)",
+                 "Routing config", "DHCP config", "ACL config", "Security config", "Exit"]
+R_L3_IFACE_CONFIG = ["ROUTER L3 IFACE CONFIG MENU", "Modify IP address", "Add subinterface",
+                     "Add description", "Exit"]
 R_DHCP_CONFIG = ["ROUTER DHCP CONFIG MENU", "Set helper address", "Exclude addresses", "Set DHCP pool", "Exit"]
 R_ROUTING_CONFIG = ["ROUTER ROUTING CONFIG", "Static Routing", "OSPF", "Exit"]
-R_ROUTING_OSPF_IFACE = ["ROUTER CONFIG ROUTING OSPF INTERFACES", "Config hello interval", "Config dead interval", "Add passive interfaces", "Config priority", "Config cost", "Config network point-to-point", "Exit"]
-R_ROUTING_OSPF_PROCESS = ["ROUTER CONFIG ROUTING OSPF", "Config auto-cost reference-bandwidth", "Add network", "Config router id", "Redistribute gateways", "Exit"]
+R_ROUTING_OSPF_IFACE = ["ROUTER CONFIG ROUTING OSPF INTERFACES", "Config hello interval",
+                        "Config dead interval", "Add passive interfaces", "Config priority",
+                        "Config cost", "Config network point-to-point", "Exit"]
+R_ROUTING_OSPF_PROCESS = ["ROUTER CONFIG ROUTING OSPF", "Config auto-cost reference-bandwidth",
+                          "Add network", "Config router id", "Redistribute gateways", "Exit"]
 
 
 EXIT = -1
 
 class RouterMenu(DeviceMenu):
+    """
+    Menu handler for router configuration. Supports configuration of:
+    - Basic device settings
+    - Layer 3 interfaces
+    - Redundancy with HSRP
+    - Static and OSPF routing
+    - DHCP settings
+
+    Provides interactive CLI for configuration and validates user input.
+    """
     def __init__(self):
         super().__init__()
-        pass
+        options = Option()
 
-        #### PUBLIC FUNCTIONS ####
+    #### PRIVATE FUNCTIONS ####
 
-        ### ROUTER CONFIG MENU ###
-
-    def show_router_config_menu(self) -> int:
+    def __show_router_config_menu__(self) -> int:
         """
         Displays the router configuration menu and returns the selected option.
 
@@ -31,7 +45,7 @@ class RouterMenu(DeviceMenu):
         """
         return self.__show_menu__(R_CONFIG_MENU)
 
-    def show_router_l3_iface_config(self, device: dict) -> int | dict:
+    def __show_router_l3_iface_config__(self, device: dict) -> int | dict:
         """
         Show Layer 3 interface configuration for the specified device.
 
@@ -69,7 +83,7 @@ class RouterMenu(DeviceMenu):
         info["option"] = self.__show_menu__(R_L3_IFACE_CONFIG)
         return info
 
-    def router_iface_ip_address(self, devices: list) -> int | dict:
+    def __router_iface_ip_address__(self, devices: list) -> int | dict:
         """
         Configure IP address for an interface in the network.
 
@@ -105,7 +119,7 @@ class RouterMenu(DeviceMenu):
                 except ValueError:
                     print(parse_error("The IP address is not valid."))
 
-    def router_subiface_config(self, device: dict) -> int | dict:
+    def __router_subiface_config__(self, device: dict) -> int | dict:
         """
         Configure subinterface number for the specified device.
 
@@ -136,7 +150,7 @@ class RouterMenu(DeviceMenu):
                 except ValueError:
                     print(parse_error("Subinterface number must be between 1 and 4096, both included."))
 
-    def router_redundancy_config(self, device: dict) -> int | dict:
+    def __router_redundancy_config__(self, device: dict) -> int | dict:
         """
         Prompts the user for router redundancy configuration details and returns the information as a dictionary.
         If the user exits, the function returns EXIT.
@@ -229,7 +243,7 @@ class RouterMenu(DeviceMenu):
 
             return info
 
-    def show_router_dhcp_menu(self) -> int:
+    def __show_router_dhcp_menu__(self) -> int:
         """
         Show DHCP configuration menu.
 
@@ -239,7 +253,7 @@ class RouterMenu(DeviceMenu):
 
         return self.__show_menu__(R_DHCP_CONFIG)
 
-    def router_dhcp_helper_addr(self) -> int | dict:
+    def __router_dhcp_helper_addr__(self) -> int | dict:
         """
         Configure DHCP helper address.
 
@@ -262,7 +276,7 @@ class RouterMenu(DeviceMenu):
                 except ValueError:
                     print(parse_error("Invalid IP address."))
 
-    def router_dhcp_exclude_addr(self) -> int | dict:
+    def __router_dhcp_exclude_addr__(self) -> int | dict:
         """
         Configure DHCP excluded address range.
 
@@ -298,7 +312,7 @@ class RouterMenu(DeviceMenu):
                 except ValueError:
                     print(parse_error("Invalid IP address."))
 
-    def router_dhcp_pool(self, device: dict) -> int | dict:
+    def __router_dhcp_pool__(self, device: dict) -> int | dict:
         """
         Configure DHCP pool for the specified device.
 
@@ -372,7 +386,7 @@ class RouterMenu(DeviceMenu):
 
         return info
 
-    def show_router_routing_menu(self) -> int:
+    def __show_router_routing_menu__(self) -> int:
         """
         Show routing configuration menu.
 
@@ -382,7 +396,7 @@ class RouterMenu(DeviceMenu):
 
         return self.__show_menu__(R_ROUTING_CONFIG)
 
-    def router_static_routing(self, device: dict) -> int | dict:
+    def __router_static_routing__(self, device: dict) -> int | dict:
         """
         Configure static routing for the specified device.
 
@@ -454,7 +468,7 @@ class RouterMenu(DeviceMenu):
 
         return info
 
-    def show_router_routing_ospf_menu(self, device: dict) -> int | dict:
+    def __show_router_routing_ospf_menu__(self, device: dict) -> int | dict:
         """
         Show OSPF routing configuration menu for the specified device.
 
@@ -524,7 +538,7 @@ class RouterMenu(DeviceMenu):
                         break
         return info
 
-    def show_router_routing_ospf_ifaces(self) -> int:
+    def __show_router_routing_ospf_ifaces__(self) -> int:
         """
         Show OSPF interface configuration menu.
 
@@ -533,7 +547,19 @@ class RouterMenu(DeviceMenu):
         """
         return self.__show_menu__(R_ROUTING_OSPF_IFACE)
 
-    def router_routing_ospf_iface_hello(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_hello__(self, iface_list: list) -> int | list:
+        """
+        Configure the OSPF hello interval for each interface in the given list.
+
+        Args:
+            iface_list (list): List of interface dictionaries. Each must include:
+                - 'iface_name' (str): Name of the interface.
+                - 'ospf' (dict): Dictionary containing 'hello_interval'.
+
+        Returns:
+            int: EXIT if operation is cancelled.
+            list: Updated list of interfaces with modified 'hello_interval'.
+        """
         for iface in iface_list:
             print(f"Hello interval for {iface['iface_name']} is: {iface['ospf']['hello_interval']}")
             while True:
@@ -553,7 +579,19 @@ class RouterMenu(DeviceMenu):
                         print(parse_error("Invalid number, must be between 1 and 65535, both included."))
         return iface_list
 
-    def router_routing_ospf_iface_dead(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_dead__(self, iface_list: list) -> int | list:
+        """
+        Configure the OSPF dead interval for each interface in the given list.
+
+        Args:
+            iface_list (list): List of interface dictionaries. Each must include:
+                - 'iface_name' (str)
+                - 'ospf' (dict): must contain 'dead_interval'.
+
+        Returns:
+            int: EXIT if operation is cancelled.
+            list: Updated interface list with modified 'dead_interval'.
+        """
         for iface in iface_list:
             print(f"Dead interval for {iface['iface_name']} is: {iface['ospf']['dead_interval']}")
             while True:
@@ -573,7 +611,19 @@ class RouterMenu(DeviceMenu):
                         print(parse_error("Invalid number, must be between 1 and 65535, both included."))
         return iface_list
 
-    def router_routing_ospf_iface_passive(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_passive__(self, iface_list: list) -> int | list:
+        """
+        Configure whether each interface in the list is set as OSPF passive.
+
+        Args:
+            iface_list (list): List of interface dictionaries. Each must include:
+                - 'iface_name' (str)
+                - 'ospf' (dict): must contain 'is_passive'.
+
+        Returns:
+            int: EXIT if operation is cancelled.
+            list: Updated interface list with modified 'is_passive' flags.
+        """
         for iface in iface_list:
             if iface['ospf']['is_passive']:
                 print(f"Interface {iface['iface_name']} is passive.")
@@ -595,7 +645,19 @@ class RouterMenu(DeviceMenu):
                         print(parse_error("Invalid option."))
         return iface_list
 
-    def router_routing_ospf_iface_priority(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_priority__(self, iface_list: list) -> int | list:
+        """
+        Configure the OSPF priority value for each interface in the list.
+
+        Args:
+            iface_list (list): List of interface dictionaries. Each must include:
+                - 'iface_name' (str)
+                - 'ospf' (dict): must contain 'priority'.
+
+        Returns:
+            int: EXIT if operation is cancelled.
+            list: Updated interface list with modified 'priority' values.
+        """
         for iface in iface_list:
             print(f"Priority for {iface['iface_name']} is: {iface['ospf']['priority']}")
             while True:
@@ -615,7 +677,19 @@ class RouterMenu(DeviceMenu):
                         print(parse_error("Invalid number, must be between 0 and 255, both included."))
         return iface_list
 
-    def router_routing_ospf_iface_cost(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_cost__(self, iface_list: list) -> int | list:
+        """
+        Configure the OSPF cost value for each interface in the list.
+
+        Args:
+            iface_list (list): List of interface dictionaries. Each must include:
+                - 'iface_name' (str)
+                - 'ospf' (dict): must contain 'cost'.
+
+        Returns:
+            int: EXIT if operation is cancelled.
+            list: Updated interface list with modified 'cost' values.
+        """
         for iface in iface_list:
             print(f"Cost for {iface['iface_name']} is: {iface['ospf']['cost']}")
             while True:
@@ -635,7 +709,19 @@ class RouterMenu(DeviceMenu):
                         print(parse_error("Invalid number, must be between 1 and 65535, both included."))
         return iface_list
 
-    def router_routing_ospf_iface_point_to_point(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_point_to_point__(self, iface_list: list) -> int | list:
+        """
+        Set OSPF point-to-point mode on interfaces.
+
+        Args:
+            iface_list (list): List of interface dictionaries. Each must include:
+                - 'iface_name' (str)
+                - 'ospf' (dict): must contain 'is_pint_to_point'.
+
+        Returns:
+            int: EXIT if operation is cancelled.
+            list: Updated interface list with 'is_pint_to_point' flags set.
+        """
         for iface in iface_list:
             if iface['ospf']['is_pint_to_point']:
                 print(f"Interface {iface['iface_name']} is point-to-point.")
@@ -657,10 +743,27 @@ class RouterMenu(DeviceMenu):
                         print(parse_error("Invalid option."))
         return iface_list
 
-    def show_router_routing_ospf_process(self) -> int:
+    def __show_router_routing_ospf_process__(self) -> int:
+        """
+        Show the OSPF process configuration menu.
+
+        Returns:
+            int: Selected menu option.
+        """
         return self.__show_menu__(R_ROUTING_OSPF_PROCESS)
 
-    def router_routing_ospf_process_reference(self, device: dict) -> int | dict:
+    def __router_routing_ospf_process_reference__(self, device: dict) -> int | dict:
+        """
+        Configure the OSPF auto-cost reference bandwidth for the device.
+
+        Args:
+            device (dict): Device dictionary that must contain:
+                - 'ospf' (dict): with 'reference-bandwidth' key.
+
+        Returns:
+            int: EXIT if operation is cancelled.
+            dict: Updated device with new reference-bandwidth.
+        """
         print(f"Device OSPF auto-cost reference bandwidth is: {device['ospf']['reference-bandwidth']}")
         while True:
             string = input("Enter reference-bandwidth (default 100 Mbps): ")
@@ -678,7 +781,23 @@ class RouterMenu(DeviceMenu):
                 except ValueError:
                     print(parse_error("Invalid number, must be between 1 and 4294967, both included."))
 
-    def router_routing_ospf_process_network(self, device: dict) -> int | dict:
+    def __router_routing_ospf_process_network__(self, device: dict) -> int | dict:
+        """
+        Configure a new OSPF network statement for the device.
+
+        The user is prompted to input the network IP address, wildcard mask, and OSPF area ID.
+
+        Args:
+            device (dict): Device dictionary that must include:
+                - 'ospf' (dict): with 'networks' list.
+
+        Returns:
+            int: EXIT if the operation is cancelled.
+            dict: A dictionary containing:
+                - 'network_ip' (str): Network IP address.
+                - 'network_wildcard' (str): Wildcard mask.
+                - 'network_area' (int): OSPF area ID.
+        """
         print("Device OSPF networks:")
         for network in device['ospf']['networks']:
             print(f"{network}")
@@ -724,7 +843,18 @@ class RouterMenu(DeviceMenu):
 
         return info
 
-    def router_routing_ospf_process_id(self, device: dict) -> int | dict:
+    def __router_routing_ospf_process_id__(self, device: dict) -> int | dict:
+        """
+        Configure the OSPF router ID for the device.
+
+        Args:
+            device (dict): Device dictionary that must contain:
+                - 'ospf' (dict): with 'router_id' key.
+
+        Returns:
+            int: EXIT if operation is cancelled.
+            dict: Updated device with new router-id.
+        """
         print(f"Device OSPF router-id: {device['ospf']['router_id']}")
         while True:
             string = input("Enter router-id: ")
@@ -739,7 +869,18 @@ class RouterMenu(DeviceMenu):
                 except ValueError:
                     print(parse_error("Invalid router-id, this must be a valid IP address."))
 
-    def router_routing_ospf_process_redist(self, device: dict) -> int | dict:
+    def __router_routing_ospf_process_redist__(self, device: dict) -> int | dict:
+        """
+       Enable or disable OSPF route redistribution.
+
+       Args:
+           device (dict): Device dictionary that must contain:
+               - 'ospf' (dict): with 'is_redistribute' key.
+
+       Returns:
+           int: EXIT if operation is cancelled.
+           dict: Updated device with redistribution setting.
+       """
         if device['ospf']['is_redistribute']:
             print(f"Device OSPF redistribution is ENABLED.")
         else:
@@ -761,4 +902,160 @@ class RouterMenu(DeviceMenu):
         return device
 
 
+    def show_router_menu(self, device: dict, devices: list) -> tuple[str, dict] | int:
+        """
+        Displays the top-level router configuration menu and handles user selections.
 
+        Dispatches to the appropriate submenus and collects user input for specific
+        configuration tasks such as interface setup, routing, DHCP, etc.
+
+        Args:
+            device (dict): The device being configured.
+            devices (list): List of all network devices.
+
+        Returns:
+            tuple[str, dict]: The configuration option name and its associated data.
+            int: EXIT constant if the user exits the menu.
+        """
+        options = Option()
+        option = self.__show_router_config_menu__()
+        str_option = "exit"
+        info = dict()
+        match option:
+            case 1:
+                # Basic config
+                option = self.show_device_basic_config()
+                match option:
+                    case 1:
+                        info = self.device_dev_name(device, devices)
+                        if info != options.exit:
+                            str_option = "device_name"
+                    case 2:
+                        info = self.device_ip_domain(device)
+                        if info != options.exit:
+                            str_option = "ip_domain"
+                    case 3:
+                        info = self.device_add_user(device)
+                        if info != options.exit:
+                            str_option = "add_user"
+                    case 4:
+                        info = self.device_remove_user(device)
+                        if info != options.exit:
+                            str_option = "remove_user"
+                    case 5:
+                        info = self.device_banner_motd(device)
+                        if info != options.exit:
+                            str_option = "banner_motd"
+
+            case 2:
+                # L3 iface config
+                option = self.__show_router_l3_iface_config__(device)
+                match option:
+                    case 1:
+                        info = self.__router_iface_ip_address__(devices)
+                        if info != options.exit:
+                            str_option = "iface_ip_address"
+                    case 2:
+                        info = self.__router_subiface_config__(device)
+                        if info != options.exit:
+                            str_option = "subiface_config"
+                    case 3:
+                        info = self.device_iface_description()
+                        if info != options.exit:
+                            str_option = "iface_description"
+
+            case 3:
+                # Redundancy config (HSRP)
+                info = self.__router_redundancy_config__(device)
+                if info != options.exit:
+                    str_option = "redundancy_config"
+
+            case 4:
+                # Routing config
+                option = self.__show_router_routing_menu__()
+                match option:
+                    case 1:
+                        # Static routing
+                        info = self.__router_static_routing__(device)
+                        if info != options.exit:
+                            str_option = "static_routing"
+                    case 2:
+                        # OSPF
+                        info = self.__show_router_routing_ospf_menu__(device)
+                        if info != options.exit:
+                            if info['option'] == 1:
+                                # Ifaces
+                                option = self.__show_router_routing_ospf_ifaces__()
+                                match option:
+                                    case 1:
+                                        info = self.__router_routing_ospf_iface_hello__(info['iface_list'])
+                                        if info != options.exit:
+                                            str_option = "ospf_iface_hello"
+                                    case 2:
+                                        info = self.__router_routing_ospf_iface_dead__(info['iface_list'])
+                                        if info != options.exit:
+                                            str_option = "ospf_iface_dead"
+                                    case 3:
+                                        info = self.__router_routing_ospf_iface_passive__(info['iface_list'])
+                                        if info != options.exit:
+                                            str_option = "ospf_iface_passive"
+                                    case 4:
+                                        info = self.__router_routing_ospf_iface_priority__(info['iface_list'])
+                                        if info != options.exit:
+                                            str_option = "ospf_iface_priority"
+                                    case 5:
+                                        info = self.__router_routing_ospf_iface_cost__(info['iface_list'])
+                                        if info != options.exit:
+                                            str_option = "ospf_iface_cost"
+                                    case 6:
+                                        info = self.__router_routing_ospf_iface_point_to_point__(info['iface_list'])
+                                        if info != options.exit:
+                                            str_option = "ospf_iface_point_to_point"
+
+                            else:
+                                # Process
+                                option = self.__show_router_routing_ospf_process__()
+                                match option:
+                                    case 1:
+                                        info = self.__router_routing_ospf_process_reference__(device)
+                                        if info != options.exit:
+                                            str_option = "ospf_process_reference"
+                                    case 2:
+                                        info = self.__router_routing_ospf_process_network__(device)
+                                        if info != options.exit:
+                                            str_option = "ospf_process_network"
+                                    case 3:
+                                        info = self.__router_routing_ospf_process_id__(device)
+                                        if info != options.exit:
+                                            str_option = "ospf_process_id"
+                                    case 4:
+                                        info = self.__router_routing_ospf_process_redist__(device)
+                                        if info != options.exit:
+                                            str_option = "ospf_process_redistr"
+
+            case 5:
+                # DHCP config
+                option = self.__show_router_dhcp_menu__()
+                match option:
+                    case 1:
+                        info = self.__router_dhcp_helper_addr__()
+                        if info != options.exit:
+                            str_option = "dhcp_helper_addr"
+                    case 2:
+                        info = self.__router_dhcp_exclude_addr__()
+                        if info != options.exit:
+                            str_option = "dhcp_exclude_addr"
+                    case 3:
+                        info = self.__router_dhcp_pool__(device)
+                        if info != options.exit:
+                            str_option = "dhcp_pool"
+            case 6:
+                # ACL config
+                pass
+            case 7:
+                # Security config
+                pass
+            case options.exit:
+                return options.exit
+
+        return str_option, info

@@ -522,6 +522,7 @@ class View:
         options = Option()
         # Get main menu option
         option = self.__show_menu__(MAIN_MENU)
+        info = dict()
         match option:
             case 1:
                 # Add device

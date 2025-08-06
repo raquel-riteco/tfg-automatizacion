@@ -98,11 +98,7 @@ class DeviceMenu:
         Args:
             device (dict): The current device information, containing device information, including:
                 - "device_name": str  # Current name of the device
-            devices (list): List of all devices with their information.
-                [
-                    {"device_name": str, ...}, ...
-                ]
-
+            devices (list): List of dictionaries containing current device information
         Returns:
             int: EXIT if the operation is exited.
             dict: Updated device name.
