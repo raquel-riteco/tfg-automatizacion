@@ -1,5 +1,4 @@
-from model.subnetting import Subnetting
-from view.view_parser import ViewParser
+from view.view_parser import parse_error
 from view.router_menu import RouterMenu
 
 from os import listdir
@@ -23,7 +22,6 @@ class Option:
 
 class View:
     def __init__(self):
-        self.parser = ViewParser()
         self.router_menu = RouterMenu()
         
         
@@ -49,15 +47,15 @@ class View:
             option = input(f"\nEnter option: ")
             try:
                 option = int(option)
-                if (option < 1 or option > len(menu) - 1):
-                    print(self.parser.parse_error("Invalid option."))
-                elif (option == len(menu) - 1):
+                if option < 1 or option > len(menu) - 1:
+                    print(parse_error("Invalid option."))
+                elif option == len(menu) - 1:
                     return options.exit
                 else:
                     return option
             except ValueError:
                 option = 0
-                print(self.parser.parse_error("Invalid option."))
+                print(parse_error("Invalid option."))
                 
                 
     def __add_device__(self, devices: list) -> int | dict:
@@ -96,7 +94,7 @@ class View:
                     print(self.parser.parse_warning("Exit detected, operation not completed."))
                     return options.exit
                 case _:
-                    print(self.parser.parse_error("Invalid option."))
+                    print(parse_error("Invalid option."))
 
         
         num = 1
@@ -107,14 +105,14 @@ class View:
             
         while True:
             found = 0
-            string = input(f"Enter device name (default: {info["device_type"]}{num}): ")
+            string = input(f"Enter device name (default: {info['device_type']}{num}): ")
             if string.lower() == "exit":
                 print(self.parser.parse_warning("Exit detected, operation not completed."))
                 return options.exit
             if string:
                 for d in devices:
                     if string.lower() == d["device_name"].lower():
-                        print(self.parser.parse_error("A device with this name already exists."))
+                        print(parse_error("A device with this name already exists."))
                         found = 1
                         break
                     
@@ -122,7 +120,7 @@ class View:
                     info["device_name"] = string
                     break
             else: 
-                info["device_name"] = f"{info["device_type"]}{num}"
+                info["device_name"] = f"{info['device_type']}{num}"
                 break
         
         
@@ -143,7 +141,7 @@ class View:
                 info["mgmt_ip"] = ip
                 break
             except:
-                print(self.parser.parse_error("The IP address is not valid."))
+                print(parse_error("The IP address is not valid."))
                    
         
         return info            
@@ -165,7 +163,7 @@ class View:
         print("ID\tNAME\tTYPE\tMGMT IFACE\tMGMT IP ADDRESS")
         i = 1
         for d in devices:
-            print(f"{i}.\t{d["device_name"]}\t{d["device_type"]}\t{d["mgmt_iface"]}\t{d["mgmt_ip"]}")
+            print(f"{i}.\t{d['device_name']}\t{d['device_type']}\t{d['mgmt_iface']}\t{d['mgmt_ip']}")
             i += 1
     
     
@@ -191,7 +189,7 @@ class View:
         info = dict()
         self.__show_devices__(devices)
         if len(devices) == 0:
-            print(self.parser.parse_error("There are no devices."))
+            print(parse_error("There are no devices."))
             return options.exit
     
         while True:
@@ -203,13 +201,13 @@ class View:
                     try:
                         found = int(string)
                         if found < 1 | found > len(devices):
-                            print(self.parser.parse_error("This id does not exist."))
+                            print(parse_error("This id does not exist."))
                         else:
                             info["action_by"] = "id"
                             info["identification"] = found
                             return info
                     except ValueError:
-                        print(self.parser.parse_error("This id does not exist."))
+                        print(parse_error("This id does not exist."))
                                                 
                 case "name":
                     string = input("Enter name: ")  
@@ -218,7 +216,7 @@ class View:
                             found = i
                             
                     if found == -1:
-                        print(self.parser.parse_error("This name does not exist."))
+                        print(parse_error("This name does not exist."))
                     else:
                         info["action_by"] = "name"
                         info["identification"] = string
@@ -233,20 +231,20 @@ class View:
                                 found = i
                                 
                         if found == -1:
-                            print(self.parser.parse_error("This management IP address does not exist."))
+                            print(parse_error("This management IP address does not exist."))
                         else:
                             info["action_by"] = "mgmt_ip"
                             info["identification"] = ip
                             return info
                     except: 
-                        print(self.parser.parse_error("The IP address is not valid."))
+                        print(parse_error("The IP address is not valid."))
                     
                 case "exit":
                     print(self.parser.parse_warning("Exit detected, operation not completed."))
                     return options.exit
                 
                 case _:
-                    print(self.parser.parse_error("Invalid option."))
+                    print(parse_error("Invalid option."))
     
     
     def __remove_device__(self, devices: list) -> int | dict:
@@ -333,7 +331,7 @@ class View:
                 break
                 
             except ValueError:
-                print(self.parser.parse_error("Invalid network address."))
+                print(parse_error("Invalid network address."))
                 
         while True:
             string = input("Enter netmask: ")
@@ -349,7 +347,7 @@ class View:
                 break
                 
             except ValueError:
-                print(self.parser.parse_error("Invalid network mask for network address."))  
+                print(parse_error("Invalid network mask for network address."))
             
         while True:
             string = input("Enter number of networks: ")
@@ -362,7 +360,7 @@ class View:
                 info["num_networks"] = int(string)
                 break
             except ValueError:
-                print(self.parser.parse_error("Invalid number."))
+                print(parse_error("Invalid number."))
         
         info["list_num_devices"] = list()
                 
@@ -378,11 +376,11 @@ class View:
                     info["list_num_devices"].append(int(string))
                     break
                 except ValueError:
-                    print(self.parser.parse_error("Invalid number."))
+                    print(parse_error("Invalid number."))
                     
         return info
 
-    def __display_subnetting__(self, info, subnets):
+    def display_subnetting(self, info, subnets):
         """
         Displays the original subnetting input and the resulting subnets in a clean, readable format.
 
@@ -411,6 +409,56 @@ class View:
             print(f"  First Host      : {first_host}")
             print(f"  Last Host       : {last_host}")
             print(f"  Total Usable IPs: {subnet.num_addresses - 2}\n")
+
+    """
+    def show_subnetting(self, info: dict) -> tuple:
+        
+        Displays the subnetting details for a network and prompts the user to save the information to a file.
+
+        Args:
+            info (dict): Dictionary containing subnetting information with keys:
+                - network (IPv4Network): The network address.
+                - num_networks (int): The number of subnets.
+                - list_num_devices (list): List of the number of devices per subnet.
+                - subnets (list): List of subnets created.
+
+        Returns:
+            tuple: A tuple containing:
+                - int: 1 if the user wants to save the information, 0 otherwise.
+                - str: The filename if the user wants to save the information, an empty string otherwise.
+        
+
+        print(f"\nSubnetting for network: {info["network"].compressed}\t({info["network"].netmask.compressed})")
+        print(f"NUM\tSUBNET ADDRESS\tSUBNET NETMASK\tMAX NUM DEVICES\tNUM DEVICES ASKED")
+        for i in range(info["num_networks"]):
+            print(
+                f"{i + 1}.\t{info["subnets"][i].compressed}\t({info["subnets"][i].netmask.compressed})\t\t{info["subnets"][i].num_addresses}\t\t{info["list_num_devices"][i]}")
+        print("")
+        while True:
+            string = input("Do you want to save the subnetting in a file (Y | N)? ")
+            match string.lower():
+                case "y":
+                    while True:
+                        filename = input("Enter filename (formats accepted: .json, .txt, .csv): ")
+                        if filename.lower() == "exit":
+                            print(parser.parse_warning("Exit detected, operation not completed."))
+                            return (0, "")
+                        else:
+                            f, file_extension = os.path.splitext(filename)
+                            if (file_extension != ".json") and (file_extension != ".txt") and (
+                                    file_extension != ".csv"):
+                                print(parser.parse_error("Invalid format."))
+                            else:
+                                return (1, filename)
+
+                case "n":
+                    return (0, "")
+                case "exit":
+                    print(parser.parse_warning("Exit detected, operation not completed."))
+                    return (0, "")
+                case _:
+                    print(parser.parse_error("Invalid option."))
+    """
 
     def start_menu(self) -> Tuple[int, dict]:
         """
@@ -463,7 +511,7 @@ class View:
                                 return 1, info
                             except IOError:
                                 # Filename not found
-                                print(self.parser.parse_error(f"Could not find file {string} in {path}."))
+                                print(parse_error(f"Could not find file {string} in {path}."))
                             
                     case 'n':
                         return 0, info   
@@ -474,6 +522,7 @@ class View:
         options = Option()
         # Get main menu option
         option = self.__show_menu__(MAIN_MENU)
+        info = dict()
         match option:
             case 1:
                 # Add device
@@ -501,17 +550,11 @@ class View:
                 info = self.__ask_subnetting__()
                 if info == options.exit:
                     option = 0
-                else:
-                    subnetting = Subnetting(info)
-                    try:
-                        result_subnetting = subnetting.generate_subnetting()
-                        self.__display_subnetting__(info, result_subnetting)
-                    except ValueError as e:
-                        print(self.parser.parse_error(e.args[0]))
         return option, info
     
     
     def goodbye(self) -> None:
         print("\nGOODBYE!\n")
         
-        
+    def print_error(self, msg: str) -> None:
+        print(parse_error(msg))
