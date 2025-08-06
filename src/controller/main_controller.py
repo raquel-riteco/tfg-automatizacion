@@ -3,7 +3,7 @@ from typing import List, cast
 from model.files import Files
 from view.view import View, Option
 from controller.device_controller import DeviceController
-
+from model.subnetting import Subnetting
 
 
 class MainController:
@@ -19,6 +19,7 @@ class MainController:
             dev_controller = cast(DeviceController, self.device_controllers[i])
             device_dict = dev_controller.get_device_info()
             device_list.append(device_dict)
+        return device_list
              
         
     def start(self) -> None:
@@ -52,6 +53,23 @@ class MainController:
         options = Option()
         while option != options.exit:  
             option, info = self.view.main_menu(self.__get_devices_list__())
-            pass
+            match option:
+                case 1:
+                    # Implement add device
+                    pass
+                case 2:
+                    # Implement remove device
+                    pass
+                case 4:
+                    # Implement modify config
+
+                    pass
+                case 5:
+                    subnetting = Subnetting(info)
+                    try:
+                        result_subnetting = subnetting.generate_subnetting()
+                        self.view.display_subnetting(info, result_subnetting)
+                    except ValueError as e:
+                        self.view.print_error(e.args[0])
         
         self.view.goodbye()
