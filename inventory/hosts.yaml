@@ -1,0 +1,5 @@
+R1-c7200:
+  groups:
+  - routers
+  hostname: 192.168.174.200
+  platform: ios

@@ -2,14 +2,14 @@ from model.connector import Connector
 from model.router import Router
 from view.router_menu import RouterMenu
 from view.view import Option as options
+from view.view import View
 
 class DeviceController:
     def __init__(self):
-        self.connector = Connector()
         self.device = None
+        self.connector = Connector()
         self.menu = None
-        
-
+        self.view = View()
 
     def create_device(self, device_info: dict) -> None:
         """
@@ -28,7 +28,11 @@ class DeviceController:
         Returns:
             None
         """
-        connector_info = self.connector.get_device_info()
+        try:
+            connector_info = self.connector.get_device_info(device_info)
+        except RuntimeError as e:
+            self.view.print_error(str(e))
+
         if device_info["device_type"] == "router":
             self.device = Router(device_info["name"], device_info["mgmt_ip"], device_info["mgmt_iface"], 
                                  connector_info["security"], connector_info["interfaces"], connector_info["users"], 
@@ -90,6 +94,5 @@ class DeviceController:
                         pass
 
                     
-
     def get_device_info(self) -> dict:
         return self.device.get_device_info()
