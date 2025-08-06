@@ -195,3 +195,4 @@ class Connector:
         }
 
         return device_info
+

@@ -43,8 +43,9 @@ class MainController:
             for device in info:
                 device_info = info[device]
                 device_controller = DeviceController()
-                device_controller.create_device(device_info["connect"])
-                device_controller.configure_device(device_info["config"])
+                # Important to call get and not pass the param directly because there may not exist a key "config" in
+                # the device_info dictionary.
+                device_controller.create_device(device_info["connect"], device_info.get("config"))
                 self.device_controllers.append(device_controller)
                 
                 

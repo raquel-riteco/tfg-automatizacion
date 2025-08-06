@@ -1,7 +1,7 @@
 from view.view_parser import parse_error, parse_warning
 
 DEV_BASIC_CONFIG = ["DEVICE BASIC CONFIG MENU", "Device name", "IP domain lookup", "Add user", "Remove user",
-                    "Banner MOTD", "Exit"]
+                    "Banner MOTD", "Security", "Exit"]
 DEV_SECURITY_CONFIG = ["DEVICE SECURITY CONFIG MENU", "Encrypt passwords", "Console access", "VTY access",
                        "Enable passw", "Exit"]
 
@@ -412,118 +412,59 @@ class DeviceMenu:
 
     def device_vty_access(self, device: dict) -> int | dict:
         """
-        Change the VTY access and protocol configuration of the device.
+        Change the VTY protocol configuration of the device.
 
         Args:
             device (dict): The current device information.
-                - "vty_access": str,       # Current VTY access method ("local_database", "password")
-                - "vty_protocols": str     # Current VTY protocols ("ssh", "telnet", "both")
+                - "vty_protocols": str     # Current VTY protocols ("ssh", "both")
 
         Returns:
             int: EXIT if the operation is exited.
             dict: Updated VTY access and/or protocol configuration.
-                - "vty_access": str,       # New VTY access method ("local_database", "password")
-                - "vty_protocols": str     # New VTY protocols ("ssh", "telnet", "both")
+                - "vty_protocols": str     # New VTY protocols ("ssh", "both")
         """
 
         info = dict()
         string = ""
-        while True:
-            match device["vty_access"]:
-                case "local_database":
-                    print(
-                        "Currently, VTY lines are accessed by entering username and password stored in local database.")
-                case "password":
-                    print("Currently, VTY lines are accessed by entering only a password.")
-                case _:
-                    print("Currently, VTY lines access is not configured.")
+        print("Currently, VTY lines are accessed by entering username and password stored in local database. THIS "
+              "CANNOT BE CHANGED BECAUSE CONNECTION TO THE DEVICE WILL BE LOST.")
 
-            match device["vty_protocols"]:
-                case "ssh":
-                    print("Only SSH protocol configured")
-                case "telnet":
-                    print("Only Telnet protocol configured")
-                case "both":
-                    print("Both SSH and Telnet protocols configured")
-                case _:
-                    print("No protocols configured")
-
-            string = input("Config access (1) or protocols (2)? ")
-            match string.lower():
-                case '1':
-                    match device["vty_access"]:
-                        case "local_database":
-                            while True:
-                                string = input("Want to change access to only password (Y | N)? ")
-                                match string.lower():
-                                    case 'y':
-                                        info["vty_access"] = "password"
-                                        return info
-                                    case 'n':
-                                        info["vty_access"] = "local_database"
-                                        return info
-                                    case 'exit':
-                                        print(parse_warning("Exit detected, operation not completed."))
-                                        return EXIT
-                                    case _:
-                                        print(parse_error("Invalid option."))
-
-                        case "password":
-                            while True:
-                                string = input(
-                                    "Want to change access to username and password stored in local database (Y | N)? ")
-                                match string.lower():
-                                    case 'y':
-                                        info["vty_access"] = "local_database"
-                                        return info
-                                    case 'n':
-                                        info["vty_access"] = "password"
-                                        return info
-                                    case 'exit':
-                                        print(parse_warning("Exit detected, operation not completed."))
-                                        return EXIT
-
+        # SSH must be configured to connect to device.
+        match device["vty_protocols"]:
+            case "ssh":
+                print("Only SSH protocol configured")
+                while True:
+                    string = input("Want to enable Telnet (Y | N)? ")
+                    match string.lower():
+                        case 'y':
+                            info["vty_protocols"] = "both"
+                            return info
+                        case 'n':
+                            info["vty_protocols"] = "ssh"
+                            return info
+                        case 'exit':
+                            print(parse_warning("Exit detected, operation not completed."))
+                            return EXIT
                         case _:
-                            while True:
-                                string = input(
-                                    "Want to access by only password (1) or by username and password stored in local database (2)? ")
-                                match string.lower():
-                                    case '1':
-                                        info["vty_access"] = "local_database"
-                                        return info
-                                    case '2':
-                                        info["vty_access"] = "password"
-                                        return info
-                                    case 'exit':
-                                        print(parse_warning("Exit detected, operation not completed."))
-                                        return EXIT
-                                    case _:
-                                        print(parse_error("Invalid option."))
+                            print(parse_error("Invalid option."))
+            case "both":
+                print("Both SSH and Telnet protocols configured")
+                while True:
+                    string = input("Want to disable Telnet (Y | N)? ")
+                    match string.lower():
+                        case 'y':
+                            info["vty_protocols"] = "ssh"
+                            return info
+                        case 'n':
+                            info["vty_protocols"] = "both"
+                            return info
+                        case 'exit':
+                            print(parse_warning("Exit detected, operation not completed."))
+                            return EXIT
+                        case _:
+                            print(parse_error("Invalid option."))
 
-                case '2':
-                    while True:
-                        input = ("Enable SSH, Telnet or both (ssh | telnet | both)? ")
-                        match string.lower():
-                            case 'ssh':
-                                info["vty_protocols"] = "ssh"
-                                return info
-                            case 'telnet':
-                                info["vty_protocols"] = "telnet"
-                                return info
-                            case 'both':
-                                info["vty_protocols"] = "both"
-                                return info
-                            case 'exit':
-                                print(parse_warning("Exit detected, operation not completed."))
-                                return EXIT
-                            case _:
-                                print(parse_error("Invalid option."))
 
-                case 'exit':
-                    print(parse_warning("Exit detected, operation not completed."))
-                    return EXIT
-                case _:
-                    print(parse_error("Invalid option, enter a 1 or a 2."))
 
     def device_enable_passwd(self, device: dict) -> int | dict:
         """

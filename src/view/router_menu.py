@@ -1,11 +1,9 @@
 from view.device_menu import DeviceMenu
-from view.view import Option
 from view.view_parser import parse_error, parse_warning
-
 import ipaddress as ip
 
 R_CONFIG_MENU = ["ROUTER CONFIG MENU", "Basic config", "L3 iface config", "Redundancy config (HSRP)",
-                 "Routing config", "DHCP config", "ACL config", "Security config", "Exit"]
+                 "Routing config", "DHCP config", "Exit"]
 R_L3_IFACE_CONFIG = ["ROUTER L3 IFACE CONFIG MENU", "Modify IP address", "Add subinterface",
                      "Add description", "Exit"]
 R_DHCP_CONFIG = ["ROUTER DHCP CONFIG MENU", "Set helper address", "Exclude addresses", "Set DHCP pool", "Exit"]
@@ -15,7 +13,6 @@ R_ROUTING_OSPF_IFACE = ["ROUTER CONFIG ROUTING OSPF INTERFACES", "Config hello i
                         "Config cost", "Config network point-to-point", "Exit"]
 R_ROUTING_OSPF_PROCESS = ["ROUTER CONFIG ROUTING OSPF", "Config auto-cost reference-bandwidth",
                           "Add network", "Config router id", "Redistribute gateways", "Exit"]
-
 
 EXIT = -1
 
@@ -32,7 +29,6 @@ class RouterMenu(DeviceMenu):
     """
     def __init__(self):
         super().__init__()
-        options = Option()
 
     #### PRIVATE FUNCTIONS ####
 
@@ -901,6 +897,8 @@ class RouterMenu(DeviceMenu):
                     print(parse_error("Invalid option."))
         return device
 
+    ### PUBLIC FUNCTIONS
+
 
     def show_router_menu(self, device: dict, devices: list) -> tuple[str, dict] | int:
         """
@@ -917,10 +915,10 @@ class RouterMenu(DeviceMenu):
             tuple[str, dict]: The configuration option name and its associated data.
             int: EXIT constant if the user exits the menu.
         """
-        options = Option()
         option = self.__show_router_config_menu__()
         str_option = "exit"
         info = dict()
+        EXIT = -1
         match option:
             case 1:
                 # Basic config
@@ -928,23 +926,23 @@ class RouterMenu(DeviceMenu):
                 match option:
                     case 1:
                         info = self.device_dev_name(device, devices)
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "device_name"
                     case 2:
                         info = self.device_ip_domain(device)
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "ip_domain"
                     case 3:
                         info = self.device_add_user(device)
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "add_user"
                     case 4:
                         info = self.device_remove_user(device)
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "remove_user"
                     case 5:
                         info = self.device_banner_motd(device)
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "banner_motd"
 
             case 2:
@@ -953,21 +951,21 @@ class RouterMenu(DeviceMenu):
                 match option:
                     case 1:
                         info = self.__router_iface_ip_address__(devices)
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "iface_ip_address"
                     case 2:
                         info = self.__router_subiface_config__(device)
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "subiface_config"
                     case 3:
                         info = self.device_iface_description()
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "iface_description"
 
             case 3:
                 # Redundancy config (HSRP)
                 info = self.__router_redundancy_config__(device)
-                if info != options.exit:
+                if info != EXIT:
                     str_option = "redundancy_config"
 
             case 4:
@@ -977,39 +975,39 @@ class RouterMenu(DeviceMenu):
                     case 1:
                         # Static routing
                         info = self.__router_static_routing__(device)
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "static_routing"
                     case 2:
                         # OSPF
                         info = self.__show_router_routing_ospf_menu__(device)
-                        if info != options.exit:
+                        if info != EXIT:
                             if info['option'] == 1:
                                 # Ifaces
                                 option = self.__show_router_routing_ospf_ifaces__()
                                 match option:
                                     case 1:
                                         info = self.__router_routing_ospf_iface_hello__(info['iface_list'])
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_iface_hello"
                                     case 2:
                                         info = self.__router_routing_ospf_iface_dead__(info['iface_list'])
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_iface_dead"
                                     case 3:
                                         info = self.__router_routing_ospf_iface_passive__(info['iface_list'])
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_iface_passive"
                                     case 4:
                                         info = self.__router_routing_ospf_iface_priority__(info['iface_list'])
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_iface_priority"
                                     case 5:
                                         info = self.__router_routing_ospf_iface_cost__(info['iface_list'])
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_iface_cost"
                                     case 6:
                                         info = self.__router_routing_ospf_iface_point_to_point__(info['iface_list'])
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_iface_point_to_point"
 
                             else:
@@ -1018,19 +1016,19 @@ class RouterMenu(DeviceMenu):
                                 match option:
                                     case 1:
                                         info = self.__router_routing_ospf_process_reference__(device)
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_process_reference"
                                     case 2:
                                         info = self.__router_routing_ospf_process_network__(device)
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_process_network"
                                     case 3:
                                         info = self.__router_routing_ospf_process_id__(device)
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_process_id"
                                     case 4:
                                         info = self.__router_routing_ospf_process_redist__(device)
-                                        if info != options.exit:
+                                        if info != EXIT:
                                             str_option = "ospf_process_redistr"
 
             case 5:
@@ -1039,23 +1037,17 @@ class RouterMenu(DeviceMenu):
                 match option:
                     case 1:
                         info = self.__router_dhcp_helper_addr__()
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "dhcp_helper_addr"
                     case 2:
                         info = self.__router_dhcp_exclude_addr__()
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "dhcp_exclude_addr"
                     case 3:
                         info = self.__router_dhcp_pool__(device)
-                        if info != options.exit:
+                        if info != EXIT:
                             str_option = "dhcp_pool"
-            case 6:
-                # ACL config
-                pass
-            case 7:
-                # Security config
-                pass
-            case options.exit:
-                return options.exit
+            case EXIT:
+                return EXIT
 
         return str_option, info
