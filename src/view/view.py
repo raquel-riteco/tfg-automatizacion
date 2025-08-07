@@ -1,4 +1,4 @@
-from view.view_parser import parse_error
+from view.view_parser import parse_error, parse_warning, parse_ok
 from view.router_menu import RouterMenu
 
 from os import listdir
@@ -558,3 +558,9 @@ class View:
         
     def print_error(self, msg: str) -> None:
         print(parse_error(msg))
+
+    def print_warning(self, msg: str) -> None:
+        print(parse_warning(msg))
+
+    def print_ok(self, msg: str) -> None:
+        print(parse_ok(msg))

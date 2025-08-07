@@ -1,10 +1,12 @@
 from nornir import InitNornir
 from nornir_napalm.plugins.tasks import napalm_get
 from ciscoconfparse import CiscoConfParse
+from loguru import logger
+from netmiko import ConnectHandler
 
 class Connector:
     def __init__(self):
-        pass
+        logger.remove()
       
     def get_device_info(self, connect_info: dict) -> dict:
         """
@@ -45,6 +47,12 @@ class Connector:
                 console_password = True
                 break
 
+        has_enable_password = False
+        for line in parse.find_lines(r'^enable (password|secret)'):
+            if line.startswith("enable password") or line.startswith("enable secret"):
+                has_enable_password = True
+                break
+
         vty_password = False
         for p in parse.find_objects(r'^line vty'):
             if p.text.startswith('line vty') and p.has_child_with(r'password'):
@@ -65,6 +73,7 @@ class Connector:
         device_info["security"] = {
             "is_encrypted": service_password_encryption,
             "console_by_password": console_password,
+            "enable_by_password": has_enable_password,
             "vty_by_password": vty_password,
             "protocols": protocols
         }
@@ -196,3 +205,16 @@ class Connector:
 
         return device_info
 
+    def push_config_with_netmiko(self, host: str, access_data: dict, config_lines: list):
+        device = {
+            "device_type": "cisco_ios",
+            "host": host,
+            "username": access_data['username'],
+            "password": access_data['password']
+        }
+
+        conn = ConnectHandler(**device)
+        output = conn.send_config_set(config_lines)
+
+        conn.disconnect()
+        return output

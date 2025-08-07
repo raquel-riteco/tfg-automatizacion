@@ -272,7 +272,10 @@ class DeviceMenu:
         """
 
         info = dict()
-        print(f"Current banner MOTD: {device['banner']}")
+        if device['banner']:
+            print(f"Current banner MOTD: {device['banner']}")
+        else:
+            print(f"There is currently no banner MOTD")
         while True:
             string = input("Enter new banner MOTD: ")
             if string.lower() == "exit":

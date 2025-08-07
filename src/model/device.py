@@ -46,8 +46,8 @@ class Device:
                                           security.get('enable_by_password'), security.get("protocols"))
         if users: self.users = users
         if banner: self.banner = banner
-        
-        
+
+
     def get_device_info(self) -> dict:
         device_info = dict()
         device_info["device_name"] = self.hostname
@@ -56,7 +56,82 @@ class Device:
         return device_info
 
 
-    def config(self, configuration: dict) -> None:
+    def verify_config_applied(self, configuration: dict) -> dict:
+        """
+        Verifies whether the intended configuration has been applied to the device.
+
+        Args:
+            configuration (dict): The same dict passed to `config()`.
+
+        Returns:
+            dict: A dictionary with verification results.
+        """
+        nr = InitNornir(config_file="config/config.yaml")
+        target = nr.filter(name=self.hostname)
+
+        # Fetch running config
+        result = target.run(task=napalm_get, getters=["config"])
+        task_result = result[self.hostname]
+
+        if task_result.failed:
+            raise RuntimeError(f"Failed to fetch running config: {task_result.exception}")
+
+        running_config = task_result.result["config"]["running"]
+        parse = CiscoConfParse(running_config.splitlines())
+
+        results = {}
+
+        # BASIC CONFIG
+        if "device_name" in configuration:
+            hostname_line = parse.find_lines(r"^hostname ")[0] if parse.find_lines(r"^hostname ") else ""
+            results["hostname"] = hostname_line == f"hostname {configuration['device_name']}"
+
+        if "ip_domain_lookup" in configuration:
+            has_no_lookup = bool(parse.find_lines(r"^no ip domain-lookup"))
+            results["ip_domain_lookup"] = not has_no_lookup if configuration["ip_domain_lookup"] else has_no_lookup
+
+        if "banner_motd" in configuration:
+            banner_line = parse.find_lines(r"^banner motd")[0] if parse.find_lines(r"^banner motd") else ""
+            expected_banner = configuration["banner_motd"].replace("^", "")
+            results["banner_motd"] = expected_banner in banner_line
+
+        for user in configuration.get("users"):
+            uname = user["username"]
+            lines = parse.find_lines(rf"^username {uname} ")
+            results[f"username_{uname}"] = len(lines) > 0
+
+        for user in configuration.get("remove_pos", []):
+            lines = parse.find_lines(rf"^username {user} ")
+            results[f"removed_user_{user}"] = len(lines) == 0
+
+        # SECURITY CONFIG
+        if "enable_passwd" in configuration:
+            enable_line = parse.find_lines(r"^enable secret")[0] if parse.find_lines(r"^enable secret") else ""
+            results["enable_secret"] = bool(enable_line)
+
+        if configuration.get("password_encryption"):
+            results["password_encryption"] = bool(parse.find_lines(r"^service password-encryption"))
+
+        if "console_access" in configuration:
+            console_block = parse.find_parents_w_child("line console 0", "login")
+            if configuration["console_access"] == "local_database":
+                results["console_access"] = any(
+                    "login local" in child.text for p in console_block for child in p.children)
+            elif configuration["console_access"] == "password":
+                results["console_access"] = any("password" in child.text for p in console_block for child in p.children)
+
+        if "vty_protocols" in configuration:
+            vty_lines = parse.find_parents_w_child("line vty", "transport input")
+            if configuration["vty_protocols"] == "ssh":
+                results["vty_protocols"] = any(
+                    "transport input ssh" in child.text for p in vty_lines for child in p.children)
+            elif configuration["vty_protocols"] == "both":
+                results["vty_protocols"] = any(
+                    "transport input all" in child.text for p in vty_lines for child in p.children)
+
+        return results
+
+    def config(self, configuration: dict) -> list:
         """
             Applies configuration to the device using NAPALM (via Nornir).
 
@@ -72,62 +147,59 @@ class Device:
         config_lines = []
 
         # BASIC CONFIG
-        if "hostname" in configuration:
-            config_lines.append(f"hostname {configuration['hostname']}")
+        if "device_name" in configuration:
+            config_lines.append(f"hostname {configuration['device_name']}")
 
-        if "domain_lookup" in configuration:
-            if configuration["domain_lookup"]:
+        if "ip_domain_lookup" in configuration:
+            if configuration["ip_domain_lookup"]:
                 config_lines.append("ip domain-lookup")
             else:
                 config_lines.append("no ip domain-lookup")
 
-        for user in configuration.get("users_to_add", []):
+        for user in configuration.get("users"):
             config_lines.append(
                 f"username {user['username']} privilege {user.get('privilege', 1)} secret {user['password']}")
 
-        for user in configuration.get("users_to_remove", []):
+        for user in configuration.get("remove_pos", []):
             config_lines.append(f"no username {user}")
 
-        if "banner" in configuration:
-            banner = configuration["banner"].replace("^", "")
+        if "banner_motd" in configuration:
+            banner = configuration["banner_motd"].replace("^", "")
             config_lines.append(f"banner motd ^{banner}^")
 
         # SECURITY CONFIG
-        if configuration.get("encrypt_passwords"):
+        if configuration.get("password_encryption"):
             config_lines.append("service password-encryption")
 
-        if configuration.get("console_access"):
+        if configuration.get("console_access") == "local_database":
             config_lines.extend([
                 "line console 0",
                 "login local"
             ])
-
-        if configuration.get("vty_access"):
+        elif configuration.get("console_access") == "password":
             config_lines.extend([
-                "line vty 0 4",
-                "login local"
+                "line console 0",
+                f"password {configuration['console_password']}",
+                "login"
             ])
 
-        if "enable_secret" in configuration:
-            config_lines.append(f"enable secret {configuration['enable_secret']}")
+        if configuration.get("vty_protocols") == "both":
+            config_lines.extend([
+                "line vty 0 4",
+                "transport input all"
+            ])
+        elif configuration.get("vty_protocols") == "ssh":
+            config_lines.extend([
+                "line vty 0 4",
+                "transport input ssh"
+            ])
+
+
+        if "enable_passwd" in configuration:
+            config_lines.append(f"enable secret {configuration['enable_passwd']}")
 
         if not config_lines:
             print("No configuration to apply.")
             return
 
-        # Send configuration to the device
-        result = target.run(
-            task=napalm_configure,
-            configuration="\n".join(config_lines),
-        )
-
-        task_result = result[self.hostname]
-
-        if task_result.failed:
-            raise RuntimeError(f"NAPALM configuration failed: {task_result.exception}")
-
-        print(f"Configuration applied successfully to {self.hostname}.")
-        print("Applied commands:")
-        for line in config_lines:
-            print(f"  {line}")
-
+        return config_lines

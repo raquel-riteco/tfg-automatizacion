@@ -120,4 +120,13 @@ class Files:
         self.__write_yaml__("inventory/hosts.yaml", treated_host_info)
         # Return other info
         return info
+
+    def get_user_and_pass(self) -> dict:
+        return self.__read_yaml__("inventory/defaults.yaml")
+
+    def modify_name_in_hosts(self, prev_name: str, new_name: str) -> None:
+        data = self.__read_yaml__("inventory/hosts.yaml")
+        data[new_name] = data.pop(prev_name)
+        self.__write_yaml__("inventory/hosts.yaml", data)
+
         

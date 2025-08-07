@@ -12,6 +12,17 @@
       "name": "R1-c7200",
       "mgmt_ip": "192.168.174.200",
       "mgmt_iface": "g0/0"
+    },
+    "config": {
+      "device_name": "R1",
+      "ip_domain_lookup": true,
+      "users" : [
+        {
+          "username": "raquel",
+          "password": "password",
+          "privilege": 15
+        }
+      ]
     }
   }
 }
