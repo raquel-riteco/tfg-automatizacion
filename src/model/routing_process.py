@@ -2,7 +2,8 @@ from typing import List, cast
 from ipaddress import IPv4Address, IPv4Network
 
 class OSPF:
-    def __init__(self, id: int, bw_cost: int = 10, networks: List[IPv4Network] = None, routing_ip: IPv4Address = None, redistribute: bool = False):
+    def __init__(self, id: int, bw_cost: int = 10, networks: List[IPv4Network] = None, routing_ip: IPv4Address = None,
+                 redistribute: bool = False):
         self.id = id
         self.bw_cost = bw_cost
         self.networks = networks
@@ -10,7 +11,8 @@ class OSPF:
         self.redistribute = redistribute
         
         
-    def update(self, id: int, bw_cost: int = 10, networks: List[IPv4Network] = None, routing_ip: IPv4Address = None, redistribute: bool = False) -> None:
+    def update(self, id: int, bw_cost: int = 10, networks: List[dict] = None, routing_ip: IPv4Address = None,
+               redistribute: bool = False) -> None:
         """
         Updates the OSPF routing process attributes, including ID, bandwidth cost, networks, routing ID,
         and redistribution setting.
@@ -35,8 +37,16 @@ class OSPF:
         info = dict()
         info['id'] = self.id
         info['bw_cost'] = self.bw_cost
-        info['networks'] = self.networks
-        info['routing_ip'] = self.routing_ip
+        info['networks'] = list()
+        for network in self.networks:
+            dictionary = dict()
+            dictionary['network'] = network['network'].explode
+            dictionary['area'] = network['area']
+            info['networks'].append(dictionary)
+        if self.routing_ip:
+            info['routing_ip'] = self.routing_ip
+        else:
+            info['routing_ip'] = None
         info['redistribute'] = self.redistribute
         return info
 

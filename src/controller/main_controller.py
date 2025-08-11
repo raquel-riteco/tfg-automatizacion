@@ -1,4 +1,4 @@
-from typing import List, cast
+from typing import cast
 
 from model.files import Files
 from view.view import View, Option

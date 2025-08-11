@@ -4,6 +4,7 @@ from ciscoconfparse import CiscoConfParse
 from loguru import logger
 from netmiko import ConnectHandler
 import re
+from ipaddress import IPv4Address, IPv4Network
 
 class Connector:
     def __init__(self):
@@ -145,7 +146,7 @@ class Connector:
                     "name": intf.text.split()[-1],
                     "is_up": is_up,
                     "description": description,
-                    "ip_address": ip_address,
+                    "ip_address": IPv4Address(ip_address),
                     "ospf": ospf,
                     "l3_redundancy": l3_redundancy
                 })
@@ -155,7 +156,6 @@ class Connector:
             # DHCP
             pools = []
             excluded_addresses = []
-            helper_addresses = []
 
             for pool in parse.find_objects(r'^ip dhcp pool'):
                 name = pool.re_match_iter_typed(r'^ip dhcp pool (\S+)', default=None)
@@ -171,31 +171,31 @@ class Connector:
                     if 'default-router' in c.text:
                         default_router = c.re_match_iter_typed(r'default-router (\S+)', default=None)
                         break
-
                 pools.append({
                     "name": name,
-                    "network": network,
+                    "network": IPv4Network(network),
                     "default_router": default_router
                 })
 
             for ex in parse.find_lines(r'^ip dhcp excluded-address'):
                 parts = ex.split()
                 if len(parts) == 4:
-                    excluded_addresses.append({"start": parts[3], "end": parts[3]})
+                    excluded_addresses.append({"start": IPv4Address(parts[3]), "end": IPv4Address(parts[3])})
                 elif len(parts) == 5:
-                    excluded_addresses.append({"start": parts[3], "end": parts[4]})
+                    excluded_addresses.append({"start": IPv4Address(parts[3]), "end": IPv4Address(parts[4])})
 
+            helper_address = None
             for intf in parse.find_objects(r"^interface "):
                 helper_lines = intf.re_search_children(r'ip helper-address')
                 for h in helper_lines:
                     ip = h.re_match_iter_typed(r'ip helper-address (\S+)', default=None)
                     if ip:
-                        helper_addresses.append(ip)
+                        helper_address = ip
 
             device_info["dhcp"] = {
                 "pools": pools,
                 "excluded_address": excluded_addresses,
-                "helper_address": helper_addresses
+                "helper_address": helper_address
             }
 
             # ROUTING
@@ -208,7 +208,7 @@ class Connector:
                     if 'network' in child.text:
                         net = child.re_match_iter_typed(r'network (\S+ \S+) area (\d+)', default=None)
                         if net:
-                            networks.append({"network": net[0], "area": int(net[1])})
+                            networks.append({"network": IPv4Network(net[0]), "area": int(net[1])})
                 ospf_processes.append({
                     "process_id": process_id,
                     "networks": networks
@@ -229,7 +229,7 @@ class Connector:
 
         return device_info
 
-    def push_config_with_netmiko(self, host: str, access_data: dict, config_lines: list):
+    def push_config_with_netmiko(self, host: str, access_data: dict, config_lines: list) -> str:
         device = {
             "device_type": "cisco_ios",
             "host": host,

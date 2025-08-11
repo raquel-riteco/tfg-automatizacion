@@ -1,17 +1,19 @@
-from ipaddress import IPv4Address, ip_address
+from ipaddress import IPv4Address
 
 from model.interface import Interface
 
 
 class L3Interface(Interface):
-    def __init__(self, name: str, is_up: bool, description: str = None, ip_address: IPv4Address = None, ospf: dict = None, l3_redundancy: dict = None):
+    def __init__(self, name: str, is_up: bool, description: str = None, ip_addr: IPv4Address = None,
+                 ospf: dict = None, l3_redundancy: dict = None):
         super().__init__(name, is_up, description)
-        self.ip_address = ip_address
+        self.ip_address = ip_addr
         self.ospf = ospf
         self.l3_redundancy = l3_redundancy
         
         
-    def update(self, is_up: bool, description: str = None, ip_address: IPv4Address = None, ospf: dict = None, l3_redundancy: dict = None) -> None:
+    def update(self, is_up: bool, description: str = None, ip_addr: IPv4Address = None, ospf: dict = None,
+               l3_redundancy: dict = None) -> None:
         """
         Updates the extended interface attributes, including name, status, description, IP address,
         OSPF configuration, and Layer 3 redundancy settings.
@@ -22,7 +24,7 @@ class L3Interface(Interface):
         Args:
             is_up (bool): The operational status of the interface (True if up, False if down).
             description (str, optional): A description for the interface.
-            ip_address (IPv4Address, optional): The IP address assigned to the interface.
+            ip_addr (IPv4Address, optional): The IP address assigned to the interface.
             ospf (dict, optional): OSPF (Open Shortest Path First) configuration details.
             l3_redundancy (dict, optional): Layer 3 redundancy settings, such as VRRP or HSRP configuration.
 
@@ -30,14 +32,14 @@ class L3Interface(Interface):
             None
         """
         super().update(is_up, description)
-        if ip_address: self.ip_address = ip_address
+        if ip_addr: self.ip_address = ip_addr
         if ospf: self.ospf = ospf
         if l3_redundancy: self.l3_redundancy = l3_redundancy
 
 
     def get_info(self) -> dict:
         info = super().get_info()
-        if self.ip_address != 'None':
+        if self.ip_address:
             info['ip_addr'] = self.ip_address.exploded
         else:
             info['ip_addr'] = None
