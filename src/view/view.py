@@ -5,6 +5,8 @@ from os import listdir
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Network
 from typing import Tuple
+import re
+import os
 
 MAIN_MENU = ["MAIN MENU", "Add device", "Remove device", "Show network", "Modify config", "Subnetting", "Exit"]
 
@@ -77,8 +79,9 @@ class View:
         
         info = dict()
         options = Option()
-        
+        '''
         while True:
+            
             string = input("Enter device type (router: R | switch: SW | switch-router: SW-R): ")
             match string.lower():
                 case "r" | "router":
@@ -91,11 +94,14 @@ class View:
                     info["device_type"] = "SW-R"
                     break
                 case "exit":
-                    print(self.parser.parse_warning("Exit detected, operation not completed."))
+                    print(parse_warning("Exit detected, operation not completed."))
                     return options.exit
                 case _:
                     print(parse_error("Invalid option."))
-
+        '''
+        print("Currently, you can only add routers from an ios platform.")
+        info["device_type"] = "R"
+        info["platform"] = "ios"
         
         num = 1
         if devices != None:
@@ -107,7 +113,7 @@ class View:
             found = 0
             string = input(f"Enter device name (default: {info['device_type']}{num}): ")
             if string.lower() == "exit":
-                print(self.parser.parse_warning("Exit detected, operation not completed."))
+                print(parse_warning("Exit detected, operation not completed."))
                 return options.exit
             if string:
                 for d in devices:
@@ -122,19 +128,39 @@ class View:
             else: 
                 info["device_name"] = f"{info['device_type']}{num}"
                 break
-        
-        
-        string = input(f"Enter device's management iface: ")
-        if string.lower() == "exit":
-            print(self.parser.parse_warning("Exit detected, operation not completed."))
-            return options.exit
-        else: 
-            info["mgmt_iface"] = string
-            
+
+        while True:
+            string = input("Enter device's management iface: ")
+
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return options.exit
+
+            # Normalize input (capitalize initial letter for consistency, e.g., gi → Gi)
+            iface = string.strip()
+
+            # Regex to support full and abbreviated names with max value 50 for both indices
+            pattern = (
+                r"^(?:"
+                r"(?:GigabitEthernet|gi|g)|"
+                r"(?:FastEthernet|fa|f)|"
+                r"(?:Ethernet|eth|e)"
+                r")"
+                r"(?:[0-9]|[1-4][0-9]|50)/(?:[0-9]|[1-4][0-9]|50)$"
+            )
+
+            if re.fullmatch(pattern, iface, re.IGNORECASE):
+                info["mgmt_iface"] = iface
+                break
+            else:
+                print(parse_error(
+                    "Invalid interface name. Examples: g0/1, fa1/2, Ethernet0/0. Max index is 50."
+                ))
+
         while True:
             string = input(f"Enter device's management IP address: ")
             if string.lower() == "exit":
-                print(self.parser.parse_warning("Exit detected, operation not completed."))
+                print(parse_warning("Exit detected, operation not completed."))
                 return options.exit
             try:
                 ip = IPv4Address(string)
@@ -143,7 +169,19 @@ class View:
             except:
                 print(parse_error("The IP address is not valid."))
                    
-        
+
+        while True:
+            string = input(f"Want to add device to a group (Y | N)? ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return options.exit
+            elif string.lower() == "y":
+                string = input(f"What group do you want to add it to? ")
+                info['group'] = string.lower()
+                break
+            elif string.lower() == 'n':
+                break
+
         return info            
                 
                 
@@ -158,13 +196,17 @@ class View:
                 - mgmt_iface (str): The management interface of the device.
                 - mgmt_ip (str): The management IP address of the device.
         """
-        
-        print(f"LIST OF DEVICES -> num devices = {len(devices)}")
-        print("ID\tNAME\tTYPE\tMGMT IFACE\tMGMT IP ADDRESS")
-        i = 1
-        for d in devices:
-            print(f"{i}.\t{d['device_name']}\t{d['device_type']}\t{d['mgmt_iface']}\t{d['mgmt_ip']}")
-            i += 1
+        if len(devices) == 0:
+            print(parse_error("There are no devices."))
+            return
+
+        print(f"\nLIST OF DEVICES -> num devices = {len(devices)}")
+        print(f"{'ID':<4}{'NAME':<20}{'TYPE':<8}{'MGMT IFACE':<15}{'MGMT IP ADDRESS':<15}")
+        print("-" * 65)
+
+        for i, d in enumerate(devices, 1):
+            ip = d['mgmt_ip'].exploded
+            print(f"{i:<4}{d['device_name']:<20}{d['device_type']:<8}{d['mgmt_iface']:<15}{ip:<15}")
     
     
     def __get_device_by__(self, devices: list, action: str) -> int | dict:
@@ -189,12 +231,11 @@ class View:
         info = dict()
         self.__show_devices__(devices)
         if len(devices) == 0:
-            print(parse_error("There are no devices."))
             return options.exit
     
         while True:
             found = -1
-            string = input(f"{action} by id, name or management IP address (id | name | IP): ")
+            string = input(f"\n{action} by id, name or management IP address (id | name | IP): ")
             match string.lower():
                 case "id":
                     string = input("Enter id: ")
@@ -240,7 +281,7 @@ class View:
                         print(parse_error("The IP address is not valid."))
                     
                 case "exit":
-                    print(self.parser.parse_warning("Exit detected, operation not completed."))
+                    print(parse_warning("Exit detected, operation not completed."))
                     return options.exit
                 
                 case _:
@@ -275,8 +316,6 @@ class View:
         Args:
             devices (list): List of existing device dictionaries.
         """
-        
-        # TODO: For now only shows connected devices, must think about showing devices' connections
         
         self.__show_devices__(devices)             
                  
@@ -323,7 +362,7 @@ class View:
             string = input("Enter network: ")
             
             if string.lower() == "exit":
-                print(self.parser.parse_warning("Exit detected, operation not completed."))
+                print(parse_warning("Exit detected, operation not completed."))
                 return options.exit
             try:
                 ip = IPv4Network(string)
@@ -337,7 +376,7 @@ class View:
             string = input("Enter netmask: ")
             
             if string.lower() == "exit":
-                print(self.parser.parse_warning("Exit detected, operation not completed."))
+                print(parse_warning("Exit detected, operation not completed."))
                 return options.exit
             try:
                 if "/" in string:
@@ -353,7 +392,7 @@ class View:
             string = input("Enter number of networks: ")
             
             if string.lower() == "exit":
-                print(self.parser.parse_warning("Exit detected, operation not completed."))
+                print(parse_warning("Exit detected, operation not completed."))
                 return options.exit
             try:
                 int(string)
@@ -369,7 +408,7 @@ class View:
                 string = input(f"Enter number of devices in network {i + 1}: ")
                 
                 if string.lower() == "exit":
-                    print(self.parser.parse_warning("Exit detected, operation not completed."))
+                    print(parse_warning("Exit detected, operation not completed."))
                     return options.exit
                 try:
                     int(string)
@@ -380,12 +419,17 @@ class View:
                     
         return info
 
-    def display_subnetting(self, info, subnets):
+    def display_subnetting(self, info: dict, subnets: list) -> tuple[int, str]:
         """
         Displays the original subnetting input and the resulting subnets in a clean, readable format.
 
         Args:
             subnets (list of IPv4Network): List of generated subnets.
+
+        Returns:
+            tuple: A tuple containing:
+                - int: 1 if the user wants to save the information, 0 otherwise.
+                - str: The filename if the user wants to save the information, an empty string otherwise.
         """
         print("\n=== Subnetting Summary ===\n")
 
@@ -408,32 +452,8 @@ class View:
             print(f"  Broadcast Addr  : {subnet.broadcast_address}")
             print(f"  First Host      : {first_host}")
             print(f"  Last Host       : {last_host}")
-            print(f"  Total Usable IPs: {subnet.num_addresses - 2}\n")
+            print(f"  Total Usable IPs: {subnet.num_addresses - 2}\n\n")
 
-    """
-    def show_subnetting(self, info: dict) -> tuple:
-        
-        Displays the subnetting details for a network and prompts the user to save the information to a file.
-
-        Args:
-            info (dict): Dictionary containing subnetting information with keys:
-                - network (IPv4Network): The network address.
-                - num_networks (int): The number of subnets.
-                - list_num_devices (list): List of the number of devices per subnet.
-                - subnets (list): List of subnets created.
-
-        Returns:
-            tuple: A tuple containing:
-                - int: 1 if the user wants to save the information, 0 otherwise.
-                - str: The filename if the user wants to save the information, an empty string otherwise.
-        
-
-        print(f"\nSubnetting for network: {info["network"].compressed}\t({info["network"].netmask.compressed})")
-        print(f"NUM\tSUBNET ADDRESS\tSUBNET NETMASK\tMAX NUM DEVICES\tNUM DEVICES ASKED")
-        for i in range(info["num_networks"]):
-            print(
-                f"{i + 1}.\t{info["subnets"][i].compressed}\t({info["subnets"][i].netmask.compressed})\t\t{info["subnets"][i].num_addresses}\t\t{info["list_num_devices"][i]}")
-        print("")
         while True:
             string = input("Do you want to save the subnetting in a file (Y | N)? ")
             match string.lower():
@@ -441,24 +461,24 @@ class View:
                     while True:
                         filename = input("Enter filename (formats accepted: .json, .txt, .csv): ")
                         if filename.lower() == "exit":
-                            print(parser.parse_warning("Exit detected, operation not completed."))
-                            return (0, "")
+                            print(parse_warning("Exit detected, operation not completed."))
+                            return 0, ""
                         else:
                             f, file_extension = os.path.splitext(filename)
                             if (file_extension != ".json") and (file_extension != ".txt") and (
                                     file_extension != ".csv"):
-                                print(parser.parse_error("Invalid format."))
+                                print(parse_error("Invalid format."))
                             else:
-                                return (1, filename)
+                                return 1, filename
 
                 case "n":
-                    return (0, "")
+                    return 0, ""
                 case "exit":
-                    print(parser.parse_warning("Exit detected, operation not completed."))
-                    return (0, "")
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return 0, ""
                 case _:
-                    print(parser.parse_error("Invalid option."))
-    """
+                    print(parse_error("Invalid option."))
+
 
     def start_menu(self) -> Tuple[int, dict]:
         """
@@ -505,6 +525,8 @@ class View:
                                 print(f"\t- {file}")
                             # Get filename
                             string = input("Enter hosts filename: ")
+                            if string.lower() == "exit":
+                                return 0, info
                             try:
                                 open(path + string, "r")
                                 info["filename"] = path + string

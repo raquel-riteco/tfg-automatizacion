@@ -51,8 +51,8 @@ class Device:
     def get_device_info(self) -> dict:
         device_info = dict()
         device_info["device_name"] = self.hostname
-        device_info["mgmt_iface"] = self.mgmt_ip
-        device_info["mgmt_ip"] = self.mgmt_iface
+        device_info["mgmt_iface"] = self.mgmt_iface
+        device_info["mgmt_ip"] = self.mgmt_ip
         return device_info
 
 

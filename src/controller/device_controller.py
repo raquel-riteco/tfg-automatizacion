@@ -1,7 +1,5 @@
 from ipaddress import IPv4Address
 
-from serial.serialjava import device
-
 from model.connector import Connector
 from model.router import Router
 from view.router_menu import RouterMenu
@@ -17,7 +15,9 @@ class DeviceController:
         self.view = View()
         self.files = Files()
 
-    def __execute_device_config__(self, device_config: dict) -> None:
+    def __execute_device_config__(self, device_info: dict, device_config: dict) -> None:
+        if "hostname" in device_config:
+            self.files.modify_name_in_hosts(device_info["hostname"], device_config["hostname"])
         try:
             config_lines = self.device.config(device_config)
             access_data = self.files.get_user_and_pass()
@@ -29,103 +29,57 @@ class DeviceController:
                     self.view.print_ok(f"{key} configured correctly.")
                 else:
                     self.view.print_warning(f"{key} was not configured.")
-
-            self.device.update(device_config.get("name"), device_config.get("security"),
+            # Important to call get and not pass the params directly because they may not exist in the
+            # device_config dictionary.
+            self.device.update(device_config.get("device_name"), device_config.get("security"),
                                device_config.get("interfaces"), device_config.get("users"),
                                device_config.get("banner"), device_config.get("dhcp"),
                                device_config.get("routing_process"))
         except RuntimeError as e:
             self.view.print_error("Could not config device: " + str(e))
 
-    def create_device(self, device_info: dict, device_config: dict = None) -> None:
+    def create_device(self, device_info: dict, device_config: dict = None) -> bool:
         """
         Creates a device instance based on the provided device information.
 
         Connects to the device to retrieve additional information and initializes a `Router` object
-        if the device type is identified as "router".
+        if the device type is identified as "R".
 
         Args:
             device_info (dict): A dictionary containing the device's attributes, including:
-                - "device_type" (str): Type of the device, e.g., "router".
-                - "name" (str): Device name.
+                - "device_type" (str): Type of the device, e.g., "R".
+                - "device_name" (str): Device name.
                 - "mgmt_ip" (str): Management IP address.
                 - "mgmt_iface" (str): Management interface.
             device_config (dict, optional)
         Returns:
             None
         """
+
+        self.files.add_device_to_hosts_if_not_exists(device_info)
         try:
             connector_info = self.connector.get_device_info(device_info)
-            if device_info["device_type"] == "router":
+            if device_info["device_type"] == "R":
                 self.menu = RouterMenu()
-                self.device = Router(device_info["name"], IPv4Address(device_info["mgmt_ip"]), device_info["mgmt_iface"],
+                self.device = Router(device_info["device_name"], IPv4Address(device_info["mgmt_ip"]), device_info["mgmt_iface"],
                                      connector_info["security"], connector_info["interfaces"],
                                      connector_info["users"], connector_info["banner"], connector_info["dhcp"],
                                      connector_info["routing_process"])
                 if device_config and len(device_config) > 0:
-                    # Important to call get and not pass the params directly because they may not exist in the
-                    # device_config dictionary.
-                    if "hostname" in device_config:
-                        self.files.modify_name_in_hosts(device_info["hostname"], device_config["hostname"])
-                    self.__execute_device_config__(device_config)
+                    self.__execute_device_config__(device_info, device_config)
+            return True
 
         except RuntimeError as e:
-            self.view.print_error(str(e))
+            self.view.print_error("Device could not be created because of " + str(e))
+            return False
 
 
     def configure_device(self) -> None:
         if type(self.device) == type(Router):
-            returned = self.menu.show_router_menu()
-            if returned != options.exit:
-                str_option, info = returned
-                match str_option:
-                    case "device_name":
-                        pass
-                    case "ip_domain":
-                        pass
-                    case "add_user":
-                        pass
-                    case "remove_user":
-                        pass
-                    case "banner_motd":
-                        pass
-                    case "iface_ip_address":
-                        pass
-                    case "subiface_config":
-                        pass
-                    case "iface_description":
-                        pass
-                    case "redundancy_config":
-                        pass
-                    case "static_routing":
-                        pass
-                    case "ospf_iface_hello":
-                        pass
-                    case "ospf_iface_dead":
-                        pass
-                    case "ospf_iface_passive":
-                        pass
-                    case "ospf_iface_priority":
-                        pass
-                    case "ospf_iface_cost":
-                        pass
-                    case "ospf_iface_point_to_point":
-                        pass
-                    case "ospf_process_reference":
-                        pass
-                    case "ospf_process_network":
-                        pass
-                    case "ospf_process_id":
-                        pass
-                    case "ospf_process_redistr":
-                        pass
-                    case "dhcp_helper_addr":
-                        pass
-                    case "dhcp_exclude_addr":
-                        pass
-                    case "dhcp_pool":
-                        pass
+            info = self.menu.show_router_menu()
+            if info != options.exit:
+                self.__execute_device_config__(self.device.get_device_info(), info)
 
-                    
+
     def get_device_info(self) -> dict:
         return self.device.get_device_info()

@@ -1,5 +1,6 @@
 import yaml
 import json
+import os
 
 class Files:
     def __init__(self):
@@ -129,4 +130,42 @@ class Files:
         data[new_name] = data.pop(prev_name)
         self.__write_yaml__("inventory/hosts.yaml", data)
 
-        
+    def add_device_to_hosts_if_not_exists(self, device_info: dict) -> None:
+        devices = self.__read_yaml__("inventory/hosts.yaml")
+        if devices is None:
+            devices = dict()
+
+        found = False
+        for device in devices:
+            if device == device_info['device_name']:
+                found = True
+                break
+        if not found:
+            devices[device_info['device_name']] = dict()
+            devices[device_info['device_name']]['hostname'] = device_info['mgmt_ip'].exploded
+            devices[device_info['device_name']]['platform'] = device_info['platform']
+
+            if "group" in device_info:
+                devices[device_info['device_name']]['groups'] = list()
+                devices[device_info['device_name']]['groups'].append(device_info['group'])
+                new_group = device_info['group']
+                groups = self.__read_yaml__("inventory/groups.yaml")
+                if new_group not in groups:
+                    current_group = dict()
+                    current_group["group"] = new_group
+                    groups[new_group] = current_group
+
+                self.__write_yaml__("inventory/groups.yaml", groups)
+
+            self.__write_yaml__("inventory/hosts.yaml", devices)
+
+
+    def save_subnetting(self, filename: str, subnets: list, info: dict) -> None:
+        f, file_extension = os.path.splitext(filename)
+        match file_extension:
+            case ".txt":
+                pass
+            case ".csv":
+                pass
+            case ".json":
+                pass

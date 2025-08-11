@@ -8,8 +8,8 @@
       ]
     },
     "connect": {
-      "device_type": "router",
-      "name": "R1-c7200",
+      "device_type": "R",
+      "device_name": "R1-c7200",
       "mgmt_ip": "192.168.174.200",
       "mgmt_iface": "g0/0"
     },

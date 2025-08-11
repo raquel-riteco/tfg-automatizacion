@@ -67,5 +67,5 @@ class Router(Device):
         
     def get_device_info(self) -> dict:
         device_info = super().get_device_info()
-        device_info["device_type"] = "router"
+        device_info["device_type"] = "R"
         return device_info

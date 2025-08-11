@@ -21,7 +21,7 @@ class Connector:
 
         nr = InitNornir(config_file="config/config.yaml")
 
-        target = nr.filter(name=connect_info["name"])
+        target = nr.filter(name=connect_info["device_name"])
 
         result = target.run(task=napalm_get, getters=["config"])
         hostname = list(target.inventory.hosts.keys())[0]
