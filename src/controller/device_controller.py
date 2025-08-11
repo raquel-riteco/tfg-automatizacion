@@ -29,6 +29,14 @@ class DeviceController:
                     self.view.print_ok(f"{key} configured correctly.")
                 else:
                     self.view.print_warning(f"{key} was not configured.")
+
+            if device_config.get('save_config'):
+                ok = self.device.save_config()
+                if ok:
+                    self.view.print_ok("Configuration saved to startup config.")
+                else:
+                    self.view.print_warning("Configuration was not saved due to an error.")
+
             # Important to call get and not pass the params directly because they may not exist in the
             # device_config dictionary.
             self.device.update(device_config.get("device_name"), device_config.get("security"),
@@ -59,11 +67,19 @@ class DeviceController:
         self.files.add_device_to_hosts_if_not_exists(device_info)
         try:
             connector_info = self.connector.get_device_info(device_info)
+
+            if connector_info['device_name'] != device_info["device_name"]:
+                change_device_name = self.view.ask_change_device_name(connector_info['device_name'],
+                                                                      device_info["device_name"])
+                if change_device_name:
+                    self.files.modify_name_in_hosts(device_info["device_name"], connector_info['device_name'])
+                    device_info["device_name"] = connector_info['device_name']
+
             if device_info["device_type"] == "R":
                 self.menu = RouterMenu()
-                self.device = Router(device_info["device_name"], IPv4Address(device_info["mgmt_ip"]), device_info["mgmt_iface"],
-                                     connector_info["security"], connector_info["interfaces"],
-                                     connector_info["users"], connector_info["banner"], connector_info["dhcp"],
+                self.device = Router(device_info["device_name"], IPv4Address(device_info["mgmt_ip"]),
+                                     device_info["mgmt_iface"], connector_info["security"], connector_info["interfaces"],
+                                     connector_info["users"], connector_info["banner_motd"], connector_info["dhcp"],
                                      connector_info["routing_process"])
                 if device_config and len(device_config) > 0:
                     self.__execute_device_config__(device_info, device_config)
@@ -74,9 +90,9 @@ class DeviceController:
             return False
 
 
-    def configure_device(self) -> None:
+    def configure_device(self, devices_info: list) -> None:
         if type(self.device) == type(Router):
-            info = self.menu.show_router_menu()
+            info = self.menu.show_router_menu(self.device.get_device_info(), devices_info)
             if info != options.exit:
                 self.__execute_device_config__(self.device.get_device_info(), info)
 

@@ -1,7 +1,7 @@
 from view.view_parser import parse_error, parse_warning
 
 DEV_BASIC_CONFIG = ["DEVICE BASIC CONFIG MENU", "Device name", "IP domain lookup", "Add user", "Remove user",
-                    "Banner MOTD", "Security", "Exit"]
+                    "Banner MOTD", "Security", "Save running config", "Exit"]
 DEV_SECURITY_CONFIG = ["DEVICE SECURITY CONFIG MENU", "Encrypt passwords", "Console access", "VTY access",
                        "Enable passw", "Exit"]
 
@@ -285,6 +285,25 @@ class DeviceMenu:
                 info["banner_motd"] = string
                 return info
 
+    def save_running_config(self) -> int | dict:
+        """
+        Save the running-config into the startup-config.
+
+        Returns:
+            int: EXIT if the operation is exited.
+            dict: Information into if it wants to save the config.
+                - "save_config": bool
+        """
+
+        info = dict()
+        while True:
+            string = input("Do you want to save your running config into the startup config (Y | N)? ")
+            if string.lower() == 'y':
+                info['save_config'] = True
+                return info
+            elif string.lower() == 'n' or string.lower() == 'exit':
+                return EXIT
+
     def show_device_security_config(self) -> int:
         """
         Display the security configuration menu for the device.
@@ -538,3 +557,29 @@ class DeviceMenu:
                 info["iface_desc"] = string
                 return info
 
+
+    def device_iface_shutdown(self) -> int | dict:
+        """
+        Shutdown or activate an interface.
+
+        Returns:
+            int: EXIT if the operation is exited.
+            dict: Updated interface description.
+                - "iface_shutdown": bool
+        """
+
+        info = dict()
+        while True:
+            string = input("Want to shutdown (1) or no shutdown (activate) (2) the interface (1 | 2)? ")
+            match string.lower():
+                case '1':
+                    info["iface_shutdown"] = True
+                    return info
+                case '2':
+                    info["iface_shutdown"] = False
+                    return info
+                case 'exit':
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                case _:
+                    print(parse_error("Invalid option."))

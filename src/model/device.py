@@ -2,7 +2,8 @@
 from typing import List, cast
 from ipaddress import IPv4Address
 from nornir import InitNornir
-from nornir_napalm.plugins.tasks import napalm_get, napalm_configure
+from nornir_netmiko.tasks import netmiko_save_config
+from nornir_napalm.plugins.tasks import napalm_get
 from ciscoconfparse import CiscoConfParse
 
 from model.security import Security
@@ -53,6 +54,11 @@ class Device:
         device_info["device_name"] = self.hostname
         device_info["mgmt_iface"] = self.mgmt_iface
         device_info["mgmt_ip"] = self.mgmt_ip
+
+        device_info["security"] = self.security.get_info()
+        device_info["users"] = self.users
+        device_info["banner"] = self.banner
+
         return device_info
 
 
@@ -132,15 +138,7 @@ class Device:
         return results
 
     def config(self, configuration: dict) -> list:
-        """
-            Applies configuration to the device using NAPALM (via Nornir).
 
-            Args:
-                configuration (dict): Configuration instructions.
-
-            Raises:
-                RuntimeError: If configuration fails.
-        """
         nr = InitNornir(config_file="config/config.yaml")
         target = nr.filter(name=self.hostname)
 
@@ -200,6 +198,17 @@ class Device:
 
         if not config_lines:
             print("No configuration to apply.")
-            return
+            return config_lines
 
         return config_lines
+
+    def save_config(self) -> bool:
+        nr = InitNornir(config_file="config/config.yaml")
+        target = nr.filter(name=self.hostname)
+
+        res = target.run(task=netmiko_save_config)
+        host = list(target.inventory.hosts.keys())[0]
+        if res[host].failed:
+            return False
+        else:
+            return True

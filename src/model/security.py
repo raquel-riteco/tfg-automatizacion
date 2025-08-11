@@ -27,3 +27,11 @@ class Security:
         if console_by_password: self.console_by_password = console_by_password
         if enable_by_password: self.enable_by_password = enable_by_password
         if protocols: self.protocols = protocols
+
+    def get_info(self) -> dict:
+        info = dict()
+        info['is_encrypted'] = self.is_encrypted
+        info['console_by_password'] = self.console_by_password
+        info['enable_by_password'] = self.enable_by_password
+        info['protocols'] = self.protocols
+        return info

@@ -194,7 +194,7 @@ class View:
                 - device_name (str): The name of the device.
                 - device_type (str): The type of the device (R, SW, SW-R).
                 - mgmt_iface (str): The management interface of the device.
-                - mgmt_ip (str): The management IP address of the device.
+                - mgmt_ip (IPv4Address): The management IP address of the device.
         """
         if len(devices) == 0:
             print(parse_error("There are no devices."))
@@ -586,3 +586,14 @@ class View:
 
     def print_ok(self, msg: str) -> None:
         print(parse_ok(msg))
+
+    def ask_change_device_name(self, name_config: str, device_name: str) -> bool:
+        while True:
+            string = input(parse_warning(f"Device hostname in its configuration ({name_config}) is different to the "
+                                         f"device name you have\n provided ({device_name}). Want to change it to the "
+                                         f"device hostname in the config (Y | N)? "))
+            if string.lower() == 'exit' or string.lower() == 'n':
+                return False
+            elif string.lower() == 'y':
+                return True
+

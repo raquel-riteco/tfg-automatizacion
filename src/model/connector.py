@@ -3,6 +3,7 @@ from nornir_napalm.plugins.tasks import napalm_get
 from ciscoconfparse import CiscoConfParse
 from loguru import logger
 from netmiko import ConnectHandler
+import re
 
 class Connector:
     def __init__(self):
@@ -12,7 +13,7 @@ class Connector:
         """
         Retrieves the running configuration of the device matching the given IP address.
         Params:
-            connect_info (dict): Dictionary with connection data, must include 'ip'.
+            connect_info (dict): Dictionary with connection data, must include 'device_name'.
         Returns:
             dict: Dictionary with the running configuration, or empty if not found.
         """
@@ -33,6 +34,41 @@ class Connector:
 
         running_config = result[hostname].result["config"]["running"]
         parse = CiscoConfParse(running_config.splitlines(), syntax='ios')
+
+        # BASIC CONFIG
+        hostname_line = parse.find_lines(r"^hostname ")
+        device_info['device_name'] = None
+        if hostname_line:
+            device_info['device_name'] = hostname_line[0].split(maxsplit=1)[1].strip()
+
+        no_lookup = bool(parse.find_lines(r"^no ip domain-lookup"))
+        yes_lookup = bool(parse.find_lines(r"^ip domain-lookup"))
+        if no_lookup:
+            device_info['ip_domain_lookup'] = False
+        elif yes_lookup:
+            device_info['ip_domain_lookup'] = True
+        else:
+            # IOS default is typically disabled
+            device_info['ip_domain_lookup'] = False
+
+        device_info['banner_motd'] = None
+        banner_lines = parse.find_lines(r"^banner motd")
+        if banner_lines:
+            raw = banner_lines[0]
+            m = re.search(r"^banner\s+motd\s+(.)(.*)\1$", raw)
+            device_info['banner_motd'] = m.group(2) if m else raw  # fallback to raw line
+
+        device_info['users'] = []
+
+        for user in parse.find_objects(r'^username\s+\S+'):
+            username = user.re_match_iter_typed(r'^username\s+(\S+)', default=None)
+            # privilege (default 1 if not present)
+            privilege = user.re_match_iter_typed(r'\bprivilege\s+(\d+)', result_type=int, default=1)
+
+            device_info['users'].append({
+                "username": username,
+                "privilege": privilege
+            })
 
         # SECURITY
         service_password_encryption = False
@@ -78,130 +114,118 @@ class Connector:
             "protocols": protocols
         }
 
-        # INTERFACES
-        interfaces = []
-        for intf in parse.find_objects(r"^interface "):
-            ip_line = intf.re_search_children(r'ip address')
-            ip_address = None
-            if ip_line:
-                ip_address = ip_line[0].re_match_iter_typed(r'ip address (\S+ \S+)', default=None)
+        if connect_info['device_type'] == 'R':
+            # INTERFACES
+            interfaces = []
+            for intf in parse.find_objects(r"^interface "):
+                ip_line = intf.re_search_children(r'ip address')
+                ip_address = None
+                if ip_line:
+                    ip_address = ip_line[0].re_match_iter_typed(r'ip address (\S+ \S+)', default=None)
 
-            ospf_line = intf.re_search_children(r'ip ospf')
-            ospf = bool(ospf_line)
+                ospf_line = intf.re_search_children(r'ip ospf')
+                ospf = bool(ospf_line)
 
-            hsrp_line = intf.re_search_children(r'standby \d+ ip')
-            l3_redundancy = bool(hsrp_line)
+                hsrp_line = intf.re_search_children(r'standby \d+ ip')
+                l3_redundancy = bool(hsrp_line)
 
-            is_up = True
-            for c in intf.children:
-                if 'shutdown' in c.text:
-                    is_up = False
-                    break
+                is_up = True
+                for c in intf.children:
+                    if 'shutdown' in c.text:
+                        is_up = False
+                        break
 
-            description = ""
-            for c in intf.children:
-                if 'description' in c.text:
-                    description = c.re_match_iter_typed(r'description (.+)', default="")
-                    break
+                description = ""
+                for c in intf.children:
+                    if 'description' in c.text:
+                        description = c.re_match_iter_typed(r'description (.+)', default="")
+                        break
 
-            interfaces.append({
-                "name": intf.text.split()[-1],
-                "is_up": is_up,
-                "description": description,
-                "ip_address": ip_address,
-                "ospf": ospf,
-                "l3_redundancy": l3_redundancy
-            })
-
-        device_info["interfaces"] = interfaces
-
-        # USERS
-        users = []
-        for user in parse.find_objects(r'^username '):
-            username = user.re_match_iter_typed(r'^username (\S+)', default=None)
-            password = user.re_match_iter_typed(r'password (\d+ )?(\S+)', result_type=str, default=None)
-            users.append({"username": username, "password": password})
-        device_info["users"] = users
-
-        # BANNER
-        banner_lines = parse.find_lines(r'^banner motd')
-        banner = banner_lines[0] if banner_lines else None
-        device_info["banner"] = banner
-
-        # DHCP
-        pools = []
-        excluded_addresses = []
-        helper_addresses = []
-
-        for pool in parse.find_objects(r'^ip dhcp pool'):
-            name = pool.re_match_iter_typed(r'^ip dhcp pool (\S+)', default=None)
-
-            network = None
-            for c in pool.children:
-                if 'network' in c.text:
-                    network = c.re_match_iter_typed(r'network (\S+ \S+)', default=None)
-                    break
-
-            default_router = None
-            for c in pool.children:
-                if 'default-router' in c.text:
-                    default_router = c.re_match_iter_typed(r'default-router (\S+)', default=None)
-                    break
-
-            pools.append({
-                "name": name,
-                "network": network,
-                "default_router": default_router
-            })
-
-        for ex in parse.find_lines(r'^ip dhcp excluded-address'):
-            parts = ex.split()
-            if len(parts) == 4:
-                excluded_addresses.append({"start": parts[3], "end": parts[3]})
-            elif len(parts) == 5:
-                excluded_addresses.append({"start": parts[3], "end": parts[4]})
-
-        for intf in parse.find_objects(r"^interface "):
-            helper_lines = intf.re_search_children(r'ip helper-address')
-            for h in helper_lines:
-                ip = h.re_match_iter_typed(r'ip helper-address (\S+)', default=None)
-                if ip:
-                    helper_addresses.append(ip)
-
-        device_info["dhcp"] = {
-            "pools": pools,
-            "excluded_address": excluded_addresses,
-            "helper_address": helper_addresses
-        }
-
-        # ROUTING
-        ospf_processes = []
-        static_routes = []
-        for ospf in parse.find_objects(r'^router ospf'):
-            process_id = ospf.re_match_iter_typed(r'^router ospf (\d+)', result_type=int, default=1)
-            networks = []
-            for child in ospf.children:
-                if 'network' in child.text:
-                    net = child.re_match_iter_typed(r'network (\S+ \S+) area (\d+)', default=None)
-                    if net:
-                        networks.append({"network": net[0], "area": int(net[1])})
-            ospf_processes.append({
-                "process_id": process_id,
-                "networks": networks
-            })
-
-        for line in parse.find_lines(r'^ip route'):
-            parts = line.split()
-            if len(parts) >= 4:
-                static_routes.append({
-                    "destination": f"{parts[2]} {parts[3]}",
-                    "next_hop": parts[4] if len(parts) > 4 else None
+                interfaces.append({
+                    "name": intf.text.split()[-1],
+                    "is_up": is_up,
+                    "description": description,
+                    "ip_address": ip_address,
+                    "ospf": ospf,
+                    "l3_redundancy": l3_redundancy
                 })
 
-        device_info["routing_process"] = {
-            "ospf_processes": ospf_processes,
-            "static_routes": static_routes
-        }
+            device_info["interfaces"] = interfaces
+
+            # DHCP
+            pools = []
+            excluded_addresses = []
+            helper_addresses = []
+
+            for pool in parse.find_objects(r'^ip dhcp pool'):
+                name = pool.re_match_iter_typed(r'^ip dhcp pool (\S+)', default=None)
+
+                network = None
+                for c in pool.children:
+                    if 'network' in c.text:
+                        network = c.re_match_iter_typed(r'network (\S+ \S+)', default=None)
+                        break
+
+                default_router = None
+                for c in pool.children:
+                    if 'default-router' in c.text:
+                        default_router = c.re_match_iter_typed(r'default-router (\S+)', default=None)
+                        break
+
+                pools.append({
+                    "name": name,
+                    "network": network,
+                    "default_router": default_router
+                })
+
+            for ex in parse.find_lines(r'^ip dhcp excluded-address'):
+                parts = ex.split()
+                if len(parts) == 4:
+                    excluded_addresses.append({"start": parts[3], "end": parts[3]})
+                elif len(parts) == 5:
+                    excluded_addresses.append({"start": parts[3], "end": parts[4]})
+
+            for intf in parse.find_objects(r"^interface "):
+                helper_lines = intf.re_search_children(r'ip helper-address')
+                for h in helper_lines:
+                    ip = h.re_match_iter_typed(r'ip helper-address (\S+)', default=None)
+                    if ip:
+                        helper_addresses.append(ip)
+
+            device_info["dhcp"] = {
+                "pools": pools,
+                "excluded_address": excluded_addresses,
+                "helper_address": helper_addresses
+            }
+
+            # ROUTING
+            ospf_processes = []
+            static_routes = []
+            for ospf in parse.find_objects(r'^router ospf'):
+                process_id = ospf.re_match_iter_typed(r'^router ospf (\d+)', result_type=int, default=1)
+                networks = []
+                for child in ospf.children:
+                    if 'network' in child.text:
+                        net = child.re_match_iter_typed(r'network (\S+ \S+) area (\d+)', default=None)
+                        if net:
+                            networks.append({"network": net[0], "area": int(net[1])})
+                ospf_processes.append({
+                    "process_id": process_id,
+                    "networks": networks
+                })
+
+            for line in parse.find_lines(r'^ip route'):
+                parts = line.split()
+                if len(parts) >= 4:
+                    static_routes.append({
+                        "destination": f"{parts[2]} {parts[3]}",
+                        "next_hop": parts[4] if len(parts) > 4 else None
+                    })
+
+            device_info["routing_process"] = {
+                "ospf_processes": ospf_processes,
+                "static_routes": static_routes
+            }
 
         return device_info
 

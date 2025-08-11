@@ -5,7 +5,7 @@ import ipaddress as ip
 R_CONFIG_MENU = ["ROUTER CONFIG MENU", "Basic config", "L3 iface config", "Redundancy config (HSRP)",
                  "Routing config", "DHCP config", "Exit"]
 R_L3_IFACE_CONFIG = ["ROUTER L3 IFACE CONFIG MENU", "Modify IP address", "Add subinterface",
-                     "Add description", "Exit"]
+                     "Add description", "(No) Shutdown", "Exit"]
 R_DHCP_CONFIG = ["ROUTER DHCP CONFIG MENU", "Set helper address", "Exclude addresses", "Set DHCP pool", "Exit"]
 R_ROUTING_CONFIG = ["ROUTER ROUTING CONFIG", "Static Routing", "OSPF", "Exit"]
 R_ROUTING_OSPF_IFACE = ["ROUTER CONFIG ROUTING OSPF INTERFACES", "Config hello interval",
@@ -111,9 +111,23 @@ class RouterMenu(DeviceMenu):
 
                     if found == 0:
                         info["ip_addr"] = string
-                        return info
+                        break
                 except ValueError:
                     print(parse_error("The IP address is not valid."))
+
+        while True:
+            string = input("Enter mask: ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            if string:
+                try:
+                    ip.ip_network(f"{info['ip_addr']}/{string}", strict=False)
+                    info['mask'] = string
+                    return info
+                except ValueError:
+                    print(parse_error("The mask is not valid."))
+
 
     def __router_subiface_config__(self, device: dict) -> int | dict:
         """
@@ -158,9 +172,10 @@ class RouterMenu(DeviceMenu):
             int: EXIT if the user exits during input.
             dict: A dictionary containing redundancy configuration information with keys:
                 - iface_list (list): List of interface names.
+                - hsrp_virtual_ip (string): The HSRP virtual IP.
                 - hsrp_group (int): The HSRP group number.
                 - hsrp_priority (int): The HSRP priority.
-                - preempt (bool): The preempt state.
+                - hsrp_preempt (bool): The HSRP preempt state.
         """
 
         while True:
@@ -201,6 +216,19 @@ class RouterMenu(DeviceMenu):
                             break
                     except ValueError:
                         print(parse_error("Enter a number between 1 and 255, both included."))
+
+            while True:
+                string = input("Enter HSRP virtual IP address: ")
+                if string.lower() == "exit":
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                if string:
+                    try:
+                        ip.ip_address(string)
+                        info["hsrp_virtual_ip"] = string
+                        break
+                    except ValueError:
+                        print(parse_error("The IP address is not valid."))
 
             while True:
                 string = input("Enter priority (default is 100): ")
@@ -249,17 +277,39 @@ class RouterMenu(DeviceMenu):
 
         return self.__show_menu__(R_DHCP_CONFIG)
 
-    def __router_dhcp_helper_addr__(self) -> int | dict:
+    def __router_dhcp_helper_addr__(self, device: dict) -> int | dict:
         """
         Configure DHCP helper address.
 
+        Args:
+            device (dict): The current device information.
+                - "iface_list": list[L3_iface]  # List of DHCP pool details, each pool is a dictionary with "pool_name" as key.
+
+
         Returns:
             int: EXIT if the operation is exited.
-            dict: Updated DHCP helper address.
+            dict: Updated DHCP helper address information.
+                - "iface" : str # Where to apply the herlper address
                 - "helper_address": ip_address  # Configured DHCP helper address.
         """
 
         info = dict()
+
+        while True:
+            string = input("Enter iface where the helper address is applied: ")
+            if string == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            elif string:
+                found = False
+                for iface in device['iface_list']:
+                    if iface == string.lower():
+                        found = True
+                        info['iface'] = string
+                        break
+                if not found:
+                    print(parse_error("Invalid iface, it does not exist in device."))
+
         while True:
             string = input("Enter address: ")
             if string == "exit":
@@ -271,6 +321,7 @@ class RouterMenu(DeviceMenu):
                     return info
                 except ValueError:
                     print(parse_error("Invalid IP address."))
+
 
     def __router_dhcp_exclude_addr__(self) -> int | dict:
         """
@@ -934,6 +985,8 @@ class RouterMenu(DeviceMenu):
                         info = self.device_remove_user(device)
                     case 5:
                         info = self.device_banner_motd(device)
+                    case 6:
+                        info = self.save_running_config()
 
             case 2:
                 # L3 iface config
@@ -945,6 +998,8 @@ class RouterMenu(DeviceMenu):
                         info = self.__router_subiface_config__(device)
                     case 3:
                         info = self.device_iface_description()
+                    case 4:
+                        info = self.device.device_iface_shutdown()
 
             case 3:
                 # Redundancy config (HSRP)
@@ -996,7 +1051,7 @@ class RouterMenu(DeviceMenu):
                 option = self.__show_router_dhcp_menu__()
                 match option:
                     case 1:
-                        info = self.__router_dhcp_helper_addr__()
+                        info = self.__router_dhcp_helper_addr__(device)
                     case 2:
                         info = self.__router_dhcp_exclude_addr__()
                     case 3:

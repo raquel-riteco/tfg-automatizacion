@@ -22,3 +22,9 @@ class Interface:
         """
         if description: self.description = description
         if is_up: self.is_up = is_up
+
+    def get_info(self) -> dict:
+        info = dict()
+        info['description'] = self.description
+        info['is_up'] = self.is_up
+        return info

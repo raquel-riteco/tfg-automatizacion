@@ -1,4 +1,4 @@
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, ip_address
 
 from model.interface import Interface
 
@@ -33,3 +33,14 @@ class L3Interface(Interface):
         if ip_address: self.ip_address = ip_address
         if ospf: self.ospf = ospf
         if l3_redundancy: self.l3_redundancy = l3_redundancy
+
+
+    def get_info(self) -> dict:
+        info = super().get_info()
+        if self.ip_address != 'None':
+            info['ip_addr'] = self.ip_address.exploded
+        else:
+            info['ip_addr'] = None
+        info['ospf'] = self.ospf
+        info['l3_redundancy'] = self.l3_redundancy
+        return info
