@@ -8,67 +8,39 @@ from model.dhcp import DHCP
 
 class Router(Device):
     def __init__(self, hostname: str, ip_mgmt: IPv4Address, iface_mgmt: str, security: dict, interfaces: List[dict],
-                 users: List[dict] = None, banner: str = None, dhcp: dict = None, routing_process: dict = None):
-        super().__init__(hostname, ip_mgmt, iface_mgmt, security, users, banner)
+                 users: List[dict] = None, banner: str = None, ip_domain_lookup: bool = False,
+                 dhcp: dict = None, routing_process: dict = None):
+        super().__init__(hostname, ip_mgmt, iface_mgmt, security, users, banner, ip_domain_lookup)
         self.interfaces = []
         for interface in interfaces:
             new_interface = L3Interface(interface["name"], interface["is_up"], interface["description"],
-                                        interface["ip_address"], interface["ospf"], interface["l3_redundancy"])
+                                        interface["ip_address"], interface["netmask"], interface["ospf"], interface["l3_redundancy"],
+                                        interface["helper_address"])
             self.interfaces.append(new_interface)
         self.routing_process = RoutingProcess(routing_process["ospf_processes"], routing_process["static_routes"])
-        self.dhcp = DHCP(dhcp["pools"], dhcp["helper_address"], dhcp["excluded_address"])
+        self.dhcp = DHCP(dhcp["pools"], dhcp["excluded_address"])
         
         
-    def update(self, hostname: str, security: dict, interfaces: List[dict],
-               users: List[dict] = None, banner: str = None, dhcp: dict = None, routing_process: dict = None) -> None:
-        """
-        Updates the device attributes, including hostname, management IP, security settings, interfaces,
-        users, banner, DHCP configuration, and routing process details.
+    def update(self, config_info: dict) -> None:
+        super().update(config_info)
 
-        Inherits basic update functionality for hostname, management IP, security, interfaces, users,
-        and banner. Additionally, initializes and sets specific configurations for DHCP and routing process.
+        if config_info['iface']:
+            if config_info['subiface_num']:
+                self.interfaces.append(L3Interface(f"{config_info['iface']}.{config_info['subiface_num']}",
+                                                   False))
+            else:
+                for iface in self.interfaces:
+                    if config_info['iface'] == iface.name:
+                        iface.update(config_info)
+        if config_info['iface_list']:
+            for config_iface in config_info['iface_list']:
+                for iface in self.interfaces:
+                    if config_iface == iface.name:
+                        iface.update(config_info)
 
-        Args:
-            hostname (str): The hostname of the device.
-            security (dict): Security configurations, including encryption settings, console, and VTY access controls.
-            interfaces (List[dict]): List of dictionaries for interface configurations.
-            users (List[dict], optional): List of dictionaries with user information.
-            banner (str, optional): Device banner message.
-            interfaces (List[dict]): List of dictionaries containing interface information, where each dictionary has:
-                - "name" (str): Interface name.
-                - "is_up" (bool): Interface status.
-                - "description" (str): Interface description.
-                - "ip_address" (IPv4Address): IP address assigned to the interface.
-                - "ospf" (bool): Whether OSPF is enabled.
-                - "l3_redundancy" (str): Layer 3 redundancy configuration.
-            dhcp (dict, optional): DHCP configuration details, including:
-                - "pools" (List[dict]): List of DHCP address pools.
-                - "helper_address" (IPv4Address): DHCP helper address.
-                - "excluded_address" (List[dict]): Excluded address ranges or specific IPs.
-            routing_process (dict, optional): Routing process information, including:
-                - "ospf_processes" (List[dict]): List of OSPF process configurations.
-                - "static_routes" (List[dict]): List of static routes.
+        self.routing_process.update(config_info)
+        self.dhcp.update(config_info)
 
-        Returns:
-            None
-        """
-        super().update(hostname, security, users, banner)
-        if interfaces:
-            for new_iface in interfaces:
-                for my_iface in self.interfaces:
-                    if new_iface['name'] == my_iface.name:
-                        if "ip_address" in new_iface:
-                            ip = IPv4Address(new_iface.get('ip_address'))
-                        else:
-                            ip = None
-                        my_iface.update(new_iface.get("is_up"), new_iface.get("description"),
-                                        ip, new_iface.get('ospf'), new_iface.get('l3_redundancy'))
-
-        if routing_process: self.routing_process.update(routing_process["ospf_processes"],
-                                                        routing_process["static_routes"])
-        if dhcp: self.dhcp.update(dhcp["pools"], dhcp["helper_address"], dhcp["excluded_address"])
-        
-        
     def get_device_info(self) -> dict:
         device_info = super().get_device_info()
         device_info["device_type"] = "R"
@@ -77,7 +49,6 @@ class Router(Device):
         for iface in self.interfaces:
             device_info["iface_list"].append(iface.get_info())
 
-        device_info["routing_process"] = self.routing_process.get_info()
         device_info["dhcp"] = self.dhcp.get_info()
 
         return device_info
@@ -175,7 +146,7 @@ class Router(Device):
             else:
                 config_lines.append(f"ip route {dest_ip} {mask} {nh}")
 
-        # ========== OSPF ==========
+        # OSPF
 
         if "process_id" in configuration:
             pid = int(configuration["process_id"])
@@ -200,7 +171,6 @@ class Router(Device):
                         config_lines.append(f"redistribute {what}")
 
             if isinstance(configuration.get("iface_list"), list) and configuration["iface_list"]:
-                # apply per-interface OSPF tuning
                 for item in configuration["iface_list"]:
                     name = item.get("iface_name") or item.get("name") or item  # support simple str list
                     ospf = item.get("ospf", {}) if isinstance(item, dict) else {}

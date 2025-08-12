@@ -7,21 +7,9 @@ class Interface:
         self.is_up = is_up
         
         
-    def update(self, is_up: bool, description: str = None) -> None:
-        """
-        Updates the interface attributes, including name, status, and optional description.
-
-        Sets the name, operational status, and description for the interface.
-
-        Args:
-            is_up (bool): The operational status of the interface (True if up, False if down).
-            description (str, optional): A description for the interface.
-
-        Returns:
-            None
-        """
-        if description: self.description = description
-        if is_up: self.is_up = is_up
+    def update(self, config_info: dict) -> None:
+        if config_info['iface_desc']: self.description = config_info['iface_desc']
+        if config_info['iface_shutdown']: self.is_up = config_info['iface_shutdown']
 
     def get_info(self) -> dict:
         info = dict()

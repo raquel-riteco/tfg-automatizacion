@@ -14,15 +14,25 @@
       "mgmt_iface": "g0/0"
     },
     "config": {
-      "device_name": "R1",
-      "ip_domain_lookup": true,
-      "users" : [
-        {
-          "username": "raquel",
-          "password": "password",
-          "privilege": 15
-        }
+
+    }
+  },
+  "R1-c3725": {
+    "inventory": {
+      "hostname": "192.168.174.201",
+      "platform": "ios",
+      "groups": [
+        "routers"
       ]
+    },
+    "connect": {
+      "device_type": "R",
+      "device_name": "R1-c3725",
+      "mgmt_ip": "192.168.174.201",
+      "mgmt_iface": "f0/0"
+    },
+    "config": {
+
     }
   }
 }

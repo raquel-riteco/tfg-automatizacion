@@ -118,17 +118,34 @@ class Connector:
         if connect_info['device_type'] == 'R':
             # INTERFACES
             interfaces = []
+
+            passive_default = False
+            passive_set = set()
+            no_passive_set = set()
+            for ospf_proc in parse.find_objects(r'^router ospf'):
+                for ch in ospf_proc.children:
+                    if ch.text.strip() == 'passive-interface default':
+                        passive_default = True
+                    m = ch.re_match_iter_typed(r'^passive-interface\s+(\S+)', default=None)
+                    if m:
+                        passive_set.add(m)
+                    m = ch.re_match_iter_typed(r'^no passive-interface\s+(\S+)', default=None)
+                    if m:
+                        no_passive_set.add(m)
+
             for intf in parse.find_objects(r"^interface "):
                 ip_line = intf.re_search_children(r'ip address')
                 ip_address = None
                 if ip_line:
-                    ip_address = ip_line[0].re_match_iter_typed(r'ip address (\S+ \S+)', default=None)
-
-                ospf_line = intf.re_search_children(r'ip ospf')
-                ospf = bool(ospf_line)
-
-                hsrp_line = intf.re_search_children(r'standby \d+ ip')
-                l3_redundancy = bool(hsrp_line)
+                    raw_ip = ip_line[0].re_match_iter_typed(r'ip address (\S+ \S+)', default=None)
+                    if raw_ip == 'None':
+                        ip_address = None
+                        netmask = None
+                    else:
+                        ip_address = raw_ip.split()[0]
+                        netmask = raw_ip.split()[1]
+                        ip_address = IPv4Address(ip_address)
+                        netmask = IPv4Address(netmask)
 
                 is_up = True
                 for c in intf.children:
@@ -136,19 +153,99 @@ class Connector:
                         is_up = False
                         break
 
-                description = ""
+                description = None
                 for c in intf.children:
                     if 'description' in c.text:
                         description = c.re_match_iter_typed(r'description (.+)', default="")
                         break
 
+                name = intf.text.split()[-1]
+
+                # OSPF
+                ospf_hello = intf.re_match_iter_typed(r'ip ospf hello-interval (\d+)', default=None)
+                if ospf_hello == 'None':
+                    ospf_hello = None
+                else:
+                    ospf_hello = int(ospf_hello)
+                ospf_dead = intf.re_match_iter_typed(r'ip ospf dead-interval (\d+)', default=None)
+                if ospf_dead == 'None':
+                    ospf_dead = None
+                else:
+                    ospf_dead = int(ospf_dead)
+                ospf_prio = intf.re_match_iter_typed(r'ip ospf priority (\d+)', default=None)
+                if ospf_prio == 'None':
+                    ospf_prio = None
+                else:
+                    ospf_prio = int(ospf_prio)
+                ospf_cost = intf.re_match_iter_typed(r'ip ospf cost (\d+)', default=None)
+                if ospf_cost == 'None':
+                    ospf_cost = None
+                else:
+                    ospf_cost = int(ospf_cost)
+                ospf_ptp = intf.re_search_children(r'ip ospf network point-to-point')
+                ospf_ptp = bool(ospf_ptp)
+
+                if name in no_passive_set:
+                    ospf_passive = False
+                elif name in passive_set:
+                    ospf_passive = True
+                else:
+                    ospf_passive = passive_default
+
+                ospf_dict = {
+                    "hello_interval": ospf_hello,
+                    "dead_interval": ospf_dead,
+                    "is_passive": ospf_passive,
+                    "priority": ospf_prio,
+                    "cost": ospf_cost,
+                    "is_pint_to_point": ospf_ptp,
+                }
+
+                # HSRP
+                hsrp_vip = None
+                hsrp_prio = None
+                hsrp_pre = None
+                hsrp_group = intf.re_match_iter_typed(r'standby\s+(\d+)\s+ip\s+\S+', default=None)
+                if hsrp_group == 'None':
+                    hsrp_group = None
+                else:
+                    hsrp_group = int(hsrp_group)
+                    hsrp_vip_s = intf.re_match_iter_typed(r'standby\s+\d+\s+ip\s+(\S+)', default=None)
+                    if hsrp_vip_s == 'None':
+                        hsrp_vip_s = None
+                    hsrp_vip = IPv4Address(hsrp_vip_s) if hsrp_vip_s else None
+                    hsrp_prio = intf.re_match_iter_typed(rf'standby\s+{hsrp_group}\s+priority\s+(\d+)',
+                                                         default=None)
+                    if hsrp_prio is not None:
+                        hsrp_prio = int("hsrp_prio")
+                    hsrp_pre = bool(
+                        intf.re_search_children(rf'standby\s+{hsrp_group}\s+preempt'))
+
+                l3_redundancy = {
+                    "hsrp_group": hsrp_group,
+                    "hsrp_virtual_ip": hsrp_vip,
+                    "hsrp_priority": hsrp_prio,
+                    "preempt": hsrp_pre,
+                }
+
+                helper_address = None
+                helper_lines = intf.re_search_children(r'ip helper-address')
+                for h in helper_lines:
+                    ip = h.re_match_iter_typed(r'ip helper-address (\S+)', default=None)
+                    if ip:
+                        if ip == 'None':
+                            ip = None
+                        helper_address = IPv4Address(ip)
+
                 interfaces.append({
                     "name": intf.text.split()[-1],
                     "is_up": is_up,
                     "description": description,
-                    "ip_address": IPv4Address(ip_address),
-                    "ospf": ospf,
-                    "l3_redundancy": l3_redundancy
+                    "ip_address": ip_address,
+                    "netmask": netmask,
+                    "ospf": ospf_dict,
+                    "l3_redundancy": l3_redundancy,
+                    "helper_address": helper_address
                 })
 
             device_info["interfaces"] = interfaces
@@ -164,16 +261,24 @@ class Connector:
                 for c in pool.children:
                     if 'network' in c.text:
                         network = c.re_match_iter_typed(r'network (\S+ \S+)', default=None)
+                        if network == 'None':
+                            network = None
+                        if network is not None:
+                            network = IPv4Network(network)
                         break
 
                 default_router = None
                 for c in pool.children:
                     if 'default-router' in c.text:
                         default_router = c.re_match_iter_typed(r'default-router (\S+)', default=None)
+                        if default_router == 'None':
+                            default_router = None
+                        if default_router is not None:
+                            default_router = IPv4Address(default_router)
                         break
                 pools.append({
                     "name": name,
-                    "network": IPv4Network(network),
+                    "network": network,
                     "default_router": default_router
                 })
 
@@ -184,18 +289,9 @@ class Connector:
                 elif len(parts) == 5:
                     excluded_addresses.append({"start": IPv4Address(parts[3]), "end": IPv4Address(parts[4])})
 
-            helper_address = None
-            for intf in parse.find_objects(r"^interface "):
-                helper_lines = intf.re_search_children(r'ip helper-address')
-                for h in helper_lines:
-                    ip = h.re_match_iter_typed(r'ip helper-address (\S+)', default=None)
-                    if ip:
-                        helper_address = ip
-
             device_info["dhcp"] = {
                 "pools": pools,
-                "excluded_address": excluded_addresses,
-                "helper_address": helper_address
+                "excluded_address": excluded_addresses
             }
 
             # ROUTING
@@ -208,6 +304,7 @@ class Connector:
                     if 'network' in child.text:
                         net = child.re_match_iter_typed(r'network (\S+ \S+) area (\d+)', default=None)
                         if net:
+                            # TODO: SEPARATE network dict into network_ip and network_wildcard
                             networks.append({"network": IPv4Network(net[0]), "area": int(net[1])})
                 ospf_processes.append({
                     "process_id": process_id,
@@ -218,8 +315,8 @@ class Connector:
                 parts = line.split()
                 if len(parts) >= 4:
                     static_routes.append({
-                        "destination": f"{parts[2]} {parts[3]}",
-                        "next_hop": parts[4] if len(parts) > 4 else None
+                        "destination": IPv4Network(f"{parts[2]} {parts[3]}"),
+                        "next_hop": IPv4Address(parts[4]) if len(parts) > 4 else None
                     })
 
             device_info["routing_process"] = {

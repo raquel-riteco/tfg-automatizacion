@@ -22,7 +22,7 @@ class MainController:
 
     def __get_device_controller__(self, info: dict):
         if info['action_by'] == "id":
-            return self.device_controllers[info['identification']]
+            return self.device_controllers[info['identification'] - 1]
         elif info['action_by'] == "name":
             for dev_controller in self.device_controllers:
                 name = dev_controller.get_device_info()["device_name"]
@@ -95,11 +95,6 @@ class MainController:
         For each device in the configuration, creates and configures a `DeviceController` instance
         with connection and configuration details, and appends it to the list of device controllers.
 
-        Args:
-            None
-
-        Returns:
-            None
         """
         load_config, info = self.view.start_menu()
         self.files.save_defaults_file(info["defaults"])
@@ -118,7 +113,7 @@ class MainController:
     def run(self) -> None:
         option = 0
         options = Option()
-        while option != options.exit:  
+        while option != options.exit:
             option, info = self.view.main_menu(self.__get_devices_list__())
             match option:
                 case 1:
@@ -133,7 +128,7 @@ class MainController:
                 case 4:
                     # Modify config
                     dev_controller = self.__get_device_controller__(info)
-                    dev_controller.configure_device()
+                    dev_controller.configure_device(self.__get_devices_list__())
                 case 5:
                     # Subnetting
                     try:

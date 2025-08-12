@@ -136,17 +136,16 @@ class View:
                 print(parse_warning("Exit detected, operation not completed."))
                 return options.exit
 
-            # Normalize input (capitalize initial letter for consistency, e.g., gi → Gi)
             iface = string.strip()
 
-            # Regex to support full and abbreviated names with max value 50 for both indices
             pattern = (
                 r"^(?:"
                 r"(?:GigabitEthernet|gi|g)|"
                 r"(?:FastEthernet|fa|f)|"
                 r"(?:Ethernet|eth|e)"
                 r")"
-                r"(?:[0-9]|[1-4][0-9]|50)/(?:[0-9]|[1-4][0-9]|50)$"
+                r"(?:[0-9]|[1-4][0-9]|50)"
+                r"(?:/(?:[0-9]|[1-4][0-9]|50))?$"
             )
 
             if re.fullmatch(pattern, iface, re.IGNORECASE):
@@ -542,7 +541,6 @@ class View:
     # If return is -1, exit program, if option is 0 do nothing, if option is number do option
     def main_menu(self, devices: list) -> Tuple[int, dict]:
         options = Option()
-        # Get main menu option
         option = self.__show_menu__(MAIN_MENU)
         info = dict()
         match option:

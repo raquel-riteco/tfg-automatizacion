@@ -1,3 +1,6 @@
+from ipaddress import IPv4Network
+from typing import Tuple
+
 from view.device_menu import DeviceMenu
 from view.view_parser import parse_error, parse_warning
 import ipaddress as ip
@@ -123,7 +126,7 @@ class RouterMenu(DeviceMenu):
             if string:
                 try:
                     ip.ip_network(f"{info['ip_addr']}/{string}", strict=False)
-                    info['mask'] = string
+                    info['netmask'] = string
                     return info
                 except ValueError:
                     print(parse_error("The mask is not valid."))
@@ -317,7 +320,8 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    info["helper_address"] = ip.ip_address(string)
+                    ip.ip_address(string)
+                    info["helper_address"] = string
                     return info
                 except ValueError:
                     print(parse_error("Invalid IP address."))
@@ -342,7 +346,8 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    info["first_excluded_addr"] = ip.ip_address(string)
+                    ip.ip_address(string)
+                    info["first_excluded_addr"] = string
                     break
                 except ValueError:
                     print(parse_error("Invalid IP address."))
@@ -354,7 +359,8 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             if string:
                 try:
-                    info["last_excluded_addr"] = ip.ip_address(string)
+                    ip.ip_address(string)
+                    info["last_excluded_addr"] = string
                     return info
                 except ValueError:
                     print(parse_error("Invalid IP address."))
@@ -400,24 +406,12 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    info["pool_network"] = ip.ip_network(string)
+                    ip.ip_network(string)
+                    info["pool_network"] = string
                     break
                 except Exception:
                     print(parse_error("Invalid network."))
 
-        while True:
-            string = input("Enter DNS IP (leave blank if not necessary): ")
-            if string == "exit":
-                print(parse_warning("Exit detected, operation not completed."))
-                return EXIT
-            elif string:
-                try:
-                    info["pool_dns_ip"] = ip.ip_address(string)
-                    break
-                except Exception:
-                    print(parse_error("Invalid network."))
-            else:
-                break
 
         while True:
             string = input("Enter gateway IP: ")
@@ -426,7 +420,8 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             if string:
                 try:
-                    info["pool_gateway_ip"] = ip.ip_address(string)
+                    ip.ip_address(string)
+                    info["pool_gateway_ip"] = string
                     break
                 except Exception:
                     print(parse_error("Invalid network."))
@@ -461,7 +456,7 @@ class RouterMenu(DeviceMenu):
 
         info = dict()
         while True:
-            print(device["ip_table"])
+            # print(device["ip_table"])
             string = input("Enter destination IP address: ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
@@ -480,7 +475,8 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    info["dest_ip"] = ip.ip_address(f"{ip}/{string}")
+                    IPv4Network(f"{ip}/{string}")
+                    info["dest_ip"] = f"{ip}/{string}"
                     break
                 except ValueError:
                     print(parse_error("Invalid IP mask."))
@@ -492,7 +488,8 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    info["next_hop"] = ip.ip_address(string)
+                    ip.ip_address(string)
+                    info["next_hop"] = string
                     break
                 except ValueError:
                     print(parse_error("Invalid next hop."))
@@ -533,7 +530,7 @@ class RouterMenu(DeviceMenu):
 
         info = dict()
         while True:
-            print(device["ip_table"])
+            # print(device["ip_table"])
             string = input("Enter OSPF process id: ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
@@ -858,7 +855,6 @@ class RouterMenu(DeviceMenu):
             elif string:
                 try:
                     ip = ip.ip_address(string)
-                    info['network_ip'] = string
                     break
                 except ValueError:
                     print(parse_error("Invalid IP address."))
@@ -870,8 +866,8 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    network = ip.ip_network(f"{ip}/{string}")
-                    info['network_wildcard'] = string
+                    ip.ip_network(f"{ip}/{string}")
+                    info['network_ip'] = f"{ip}/{string}"
                     break
                 except ValueError:
                     print(parse_error("Invalid wildcard-mask."))
@@ -951,7 +947,7 @@ class RouterMenu(DeviceMenu):
     ### PUBLIC FUNCTIONS
 
 
-    def show_router_menu(self, device: dict, devices: list) -> dict | int:
+    def show_router_menu(self, device: dict, devices: list, config_option: int = None) -> Tuple[dict, int] | int:
         """
         Displays the top-level router configuration menu and handles user selections.
 
@@ -966,11 +962,13 @@ class RouterMenu(DeviceMenu):
             dict: The configuration associated data.
             int: EXIT constant if the user exits the menu.
         """
-        option = self.__show_router_config_menu__()
-        str_option = "exit"
+
+        if config_option is None:
+            config_option = self.__show_router_config_menu__()
+
         info = dict()
         EXIT = -1
-        match option:
+        match config_option:
             case 1:
                 # Basic config
                 option = self.show_device_basic_config()
@@ -1059,4 +1057,4 @@ class RouterMenu(DeviceMenu):
             case EXIT:
                 return EXIT
 
-        return info
+        return info, config_option

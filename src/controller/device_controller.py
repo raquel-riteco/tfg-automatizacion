@@ -1,4 +1,5 @@
 from ipaddress import IPv4Address
+from typing import Any
 
 from model.connector import Connector
 from model.router import Router
@@ -16,12 +17,20 @@ class DeviceController:
         self.files = Files()
 
     def __execute_device_config__(self, device_info: dict, device_config: dict) -> None:
-        if "hostname" in device_config:
-            self.files.modify_name_in_hosts(device_info["hostname"], device_config["hostname"])
+        if "device_name" in device_config:
+            self.files.modify_name_in_hosts(device_info["device_name"], device_config["device_name"])
         try:
             config_lines = self.device.config(device_config)
             access_data = self.files.get_user_and_pass()
             output = self.connector.push_config_with_netmiko(self.device.mgmt_ip.exploded, access_data, config_lines)
+
+            # Important to call get and not pass the params directly because they may not exist in the
+            # device_config dictionary.
+            self.device.update(device_config.get("device_name"), device_config.get("security"),
+                               device_config.get("interfaces"), device_config.get("users"),
+                               device_config.get("banner"), device_config.get("ip_domain_lookup"),
+                               device_config.get("dhcp"), device_config.get("routing_process"))
+
             verify = self.device.verify_config_applied(device_config)
 
             for key, status in verify.items():
@@ -37,12 +46,6 @@ class DeviceController:
                 else:
                     self.view.print_warning("Configuration was not saved due to an error.")
 
-            # Important to call get and not pass the params directly because they may not exist in the
-            # device_config dictionary.
-            self.device.update(device_config.get("device_name"), device_config.get("security"),
-                               device_config.get("interfaces"), device_config.get("users"),
-                               device_config.get("banner"), device_config.get("dhcp"),
-                               device_config.get("routing_process"))
         except RuntimeError as e:
             self.view.print_error("Could not config device: " + str(e))
 
@@ -79,7 +82,8 @@ class DeviceController:
                 self.menu = RouterMenu()
                 self.device = Router(device_info["device_name"], IPv4Address(device_info["mgmt_ip"]),
                                      device_info["mgmt_iface"], connector_info["security"], connector_info["interfaces"],
-                                     connector_info["users"], connector_info["banner_motd"], connector_info["dhcp"],
+                                     connector_info["users"], connector_info["banner_motd"],
+                                     connector_info["ip_domain_lookup"], connector_info["dhcp"],
                                      connector_info["routing_process"])
                 if device_config and len(device_config) > 0:
                     self.__execute_device_config__(device_info, device_config)
@@ -91,10 +95,19 @@ class DeviceController:
 
 
     def configure_device(self, devices_info: list) -> None:
-        if type(self.device) == type(Router):
-            info = self.menu.show_router_menu(self.device.get_device_info(), devices_info)
-            if info != options.exit:
-                self.__execute_device_config__(self.device.get_device_info(), info)
+        if type(self.device) == Router:
+            option = None
+            while True:
+                returned = self.menu.show_router_menu(self.device.get_device_info(), devices_info, option)
+                if returned != options.exit:
+                    info, option = returned
+                    if info != -1:
+                        if len(info) > 0:
+                            self.__execute_device_config__(self.device.get_device_info(), info)
+                        else:
+                            option = None
+                else:
+                    break
 
 
     def get_device_info(self) -> dict:

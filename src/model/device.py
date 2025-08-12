@@ -10,7 +10,7 @@ from model.security import Security
 
 class Device:
     def __init__(self, hostname: str, mgmt_ip: IPv4Address, mgmt_iface: str, security: dict = None,
-                 users: List[dict] = None, banner: str = None):
+                 users: List[dict] = None, banner: str = None, ip_domain_lookup: bool = False):
         self.security = Security(security["is_encrypted"], security["console_by_password"],
                                  security['enable_by_password'], security["protocols"])
         self.hostname = hostname
@@ -18,35 +18,23 @@ class Device:
         self.mgmt_iface = mgmt_iface
         self.users = users
         self.banner = banner
-        
+        self.ip_domain_lookup = ip_domain_lookup
 
-    def update(self, hostname: str, security: dict, users: List[dict], banner: str = None) -> None:
-        """
-        Updates device settings, including hostname, interfaces, security configurations, users, and banner.
 
-        Sets the hostname, updates each interface with specified attributes, adjusts security settings, 
-        and updates the list of users and optional device banner.
+    def update(self, config_info: dict) -> None:
 
-        Args:
-            hostname (str): The hostname of the device.
-            security (dict): Dictionary containing security settings, including:
-                - is_encrypted (bool): Indicates if security encryption is enabled. Defaults to False.
-                - console_by_password (bool): Specifies if console access is secured by a password.
-                - enable_by_password (bool): Specifies if enable access is secured by a password.
-                - vty_by_password (bool): Specifies if VTY (Virtual Teletype) access is secured by a password.
-                - vty_login_local (bool): Specifies if VTY (Virtual Teletype) access is done by local users.
-                - protocols (List[str]): List of security protocols enabled on the device (e.g., SSH, Telnet).
-            users (List[dict]): List of dictionaries with user information.
-            banner (str, optional): Device banner message.
+        if config_info['device_name']: self.hostname = config_info['device_name']
+        if config_info['ip_domain_lookup']: self.ip_domain_lookup = config_info['ip_domain_lookup']
+        if config_info['username']:
+            self.users.append({'username': config_info['username'], 'privilege': config_info['privilege']})
+        if config_info['username_delete']:
+            for user in self.users:
+                if user['username'] == config_info['username_delete']:
+                    self.users.pop(user)
+                    break
+        if config_info['banner_motd']: self.banner = config_info['banner_motd']
 
-        Returns:
-            None
-        """
-        if hostname: self.hostname = hostname
-        if security: self.security.update(security.get("is_encrypted"), security.get("console_by_password"),
-                                          security.get('enable_by_password'), security.get("protocols"))
-        if users: self.users = users
-        if banner: self.banner = banner
+        self.security.update(config_info)
 
 
     def get_device_info(self) -> dict:
@@ -58,6 +46,7 @@ class Device:
         device_info["security"] = self.security.get_info()
         device_info["users"] = self.users
         device_info["banner"] = self.banner
+        device_info["ip_domain_lookup"] = self.ip_domain_lookup
 
         return device_info
 
@@ -101,14 +90,13 @@ class Device:
             expected_banner = configuration["banner_motd"].replace("^", "")
             results["banner_motd"] = expected_banner in banner_line
 
-        for user in configuration.get("users"):
-            uname = user["username"]
-            lines = parse.find_lines(rf"^username {uname} ")
-            results[f"username_{uname}"] = len(lines) > 0
+        if "username" in configuration:
+            lines = parse.find_lines(rf"^username {configuration['username']} ")
+            results[f"username_{configuration['username']}"] = len(lines) > 0
 
-        for user in configuration.get("remove_pos", []):
-            lines = parse.find_lines(rf"^username {user} ")
-            results[f"removed_user_{user}"] = len(lines) == 0
+        if "username_delete" in configuration:
+            lines = parse.find_lines(rf"^username {configuration['username_delete']} ")
+            results[f"removed_user_{configuration['username_delete']}"] = len(lines) == 0
 
         # SECURITY CONFIG
         if "enable_passwd" in configuration:
@@ -154,12 +142,13 @@ class Device:
             else:
                 config_lines.append("no ip domain-lookup")
 
-        for user in configuration.get("users"):
+        if "username" in configuration:
             config_lines.append(
-                f"username {user['username']} privilege {user.get('privilege', 1)} secret {user['password']}")
+                f"username {configuration['username']} privilege {configuration.get('privilege', 1)} "
+                f"secret {configuration['password']}")
 
-        for user in configuration.get("remove_pos", []):
-            config_lines.append(f"no username {user}")
+        if "username_delete" in configuration:
+                config_lines.append(f"no username {configuration['username_delete']}")
 
         if "banner_motd" in configuration:
             banner = configuration["banner_motd"].replace("^", "")

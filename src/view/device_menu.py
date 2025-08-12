@@ -57,8 +57,9 @@ class DeviceMenu:
         """
 
         print(f"Current users in device: {device['device_name']}")
-        for user in device["usernames"]:
-            print(user)
+        print(f"{'USERNAME':<20} {'PRIVILEGE':<10}")
+        for user in device["users"]:
+            print(f"{user['username']:<20} {user['privilege']:<10}")
 
     def __show_l3_ifaces__(self, device: dict) -> None:
         """
@@ -116,7 +117,7 @@ class DeviceMenu:
                 return EXIT
             elif string:
                 for d in devices:
-                    if string.lower() == d["device_name"].lower():
+                    if string.lower() == d["device_name"].lower() and device['mgmt_ip'] != d["mgmt_ip"]:
                         print(parse_error("A device with this name already exists."))
                         found = 1
                         break
@@ -141,14 +142,13 @@ class DeviceMenu:
 
         info = dict()
 
-        print(f"Current device ip domain domain lookup  state: {device['ip_domain_lookup']}")
+        print(f"Current device ip domain domain lookup state: {device['ip_domain_lookup']}")
         while True:
             if device["ip_domain_lookup"]:
                 string = input("Deactivate (Y | N)? ")
                 match string.lower():
                     case "n":
-                        info["ip_domain_lookup"] = True
-                        return info
+                        return EXIT
                     case "exit":
                         print(parse_warning("Exit detected, operation not completed."))
                         return EXIT
@@ -161,8 +161,7 @@ class DeviceMenu:
                 string = input("Activate (Y | N)? ")
                 match string.lower():
                     case "n":
-                        info["ip_domain_lookup"] = False
-                        return info
+                        return EXIT
                     case "exit":
                         print(parse_warning("Exit detected, operation not completed."))
                         return EXIT
@@ -197,8 +196,8 @@ class DeviceMenu:
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
             elif string:
-                for user in device["usernames"]:
-                    if string.lower() == user.lower():
+                for user in device["users"]:
+                    if string.lower() == user['username'].lower():
                         print(parse_error("A user with this name already exists."))
                         found = 1
                         break
@@ -247,10 +246,9 @@ class DeviceMenu:
                 return EXIT
             elif string:
                 i = 0
-                for user in device["usernames"]:
-                    if string.lower() == user.lower():
-                        found = 1
-                        info["remove_pos"] = i
+                for user in device["users"]:
+                    if string.lower() == user['username'].lower():
+                        info["username_delete"] = user['username']
                         return info
                     i += 1
 
