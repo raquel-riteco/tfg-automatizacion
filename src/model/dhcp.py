@@ -7,10 +7,10 @@ class DHCP:
         self.pools = pools
 
     def update(self, config_info: dict) -> None:
-        if config_info['first_excluded_addr']:
+        if 'first_excluded_addr' in config_info:
             self.excluded_addresses.append({'start': IPv4Address(config_info['first_excluded_addr']),
                                             'end': IPv4Address(config_info['last_excluded_addr']) })
-        if config_info['pool_name']:
+        if 'pool_name' in config_info:
             self.pools.append({'name': config_info['pool_name'],
                                'network': IPv4Network(config_info['pool_network']),
                                'default_router': IPv4Address(config_info['pool_gateway_ip'])})

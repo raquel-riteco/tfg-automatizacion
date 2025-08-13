@@ -26,18 +26,18 @@ class DeviceController:
 
             # Important to call get and not pass the params directly because they may not exist in the
             # device_config dictionary.
-            self.device.update(device_config.get("device_name"), device_config.get("security"),
-                               device_config.get("interfaces"), device_config.get("users"),
-                               device_config.get("banner"), device_config.get("ip_domain_lookup"),
-                               device_config.get("dhcp"), device_config.get("routing_process"))
+            self.device.update(device_config)
 
             verify = self.device.verify_config_applied(device_config)
 
-            for key, status in verify.items():
-                if status:
-                    self.view.print_ok(f"{key} configured correctly.")
-                else:
-                    self.view.print_warning(f"{key} was not configured.")
+            if len(verify) == 0:
+                self.view.print_warning("No configuration changes were made.")
+            else:
+                for key, status in verify.items():
+                    if status:
+                        self.view.print_ok(f"{key} configured correctly.")
+                    else:
+                        self.view.print_warning(f"{key} was not configured.")
 
             if device_config.get('save_config'):
                 ok = self.device.save_config()

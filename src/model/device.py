@@ -11,8 +11,8 @@ from model.security import Security
 class Device:
     def __init__(self, hostname: str, mgmt_ip: IPv4Address, mgmt_iface: str, security: dict = None,
                  users: List[dict] = None, banner: str = None, ip_domain_lookup: bool = False):
-        self.security = Security(security["is_encrypted"], security["console_by_password"],
-                                 security['enable_by_password'], security["protocols"])
+        self.security = Security(security["is_encrypted"], security["console_access"],
+                                 security['enable_by_password'], security["vty_protocols"])
         self.hostname = hostname
         self.mgmt_ip = mgmt_ip
         self.mgmt_iface = mgmt_iface
@@ -23,16 +23,16 @@ class Device:
 
     def update(self, config_info: dict) -> None:
 
-        if config_info['device_name']: self.hostname = config_info['device_name']
-        if config_info['ip_domain_lookup']: self.ip_domain_lookup = config_info['ip_domain_lookup']
-        if config_info['username']:
+        if 'device_name' in config_info: self.hostname = config_info['device_name']
+        if 'ip_domain_lookup' in config_info: self.ip_domain_lookup = config_info['ip_domain_lookup']
+        if 'username' in config_info:
             self.users.append({'username': config_info['username'], 'privilege': config_info['privilege']})
-        if config_info['username_delete']:
+        if 'username_delete' in config_info:
             for user in self.users:
                 if user['username'] == config_info['username_delete']:
-                    self.users.pop(user)
+                    self.users.remove(user)
                     break
-        if config_info['banner_motd']: self.banner = config_info['banner_motd']
+        if 'banner_motd' in config_info: self.banner = config_info['banner_motd']
 
         self.security.update(config_info)
 
@@ -107,21 +107,30 @@ class Device:
             results["password_encryption"] = bool(parse.find_lines(r"^service password-encryption"))
 
         if "console_access" in configuration:
-            console_block = parse.find_parents_w_child("line console 0", "login")
             if configuration["console_access"] == "local_database":
-                results["console_access"] = any(
-                    "login local" in child.text for p in console_block for child in p.children)
+                results["console_access"] = bool(
+                    parse.find_objects_w_child(r'^line\s+con', r'^\s*login\s+local\b')
+                )
+
             elif configuration["console_access"] == "password":
-                results["console_access"] = any("password" in child.text for p in console_block for child in p.children)
+                parents = parse.find_objects_w_child(r'^line\s+con', r'^\s*password(?:\s+\d+)?\s+\S+')
+                results["console_access"] = any(
+                    p.has_child_with(r'^\s*login\b') and not p.has_child_with(r'^\s*login\s+local\b')
+                    for p in parents
+                )
 
         if "vty_protocols" in configuration:
-            vty_lines = parse.find_parents_w_child("line vty", "transport input")
-            if configuration["vty_protocols"] == "ssh":
+            vty_blocks = parse.find_objects(r'^line\s+vty\b')
+            if len(configuration["vty_protocols"]) == 1:
                 results["vty_protocols"] = any(
-                    "transport input ssh" in child.text for p in vty_lines for child in p.children)
-            elif configuration["vty_protocols"] == "both":
+                    p.has_child_with(r'^\s*transport\s+input\s+ssh\b')
+                    for p in vty_blocks
+                )
+            elif len(configuration["vty_protocols"]) > 1:
                 results["vty_protocols"] = any(
-                    "transport input all" in child.text for p in vty_lines for child in p.children)
+                    p.has_child_with(r'^\s*transport\s+input\s+(?:all|telnet\s+ssh|ssh\s+telnet)\b')
+                    for p in vty_blocks
+                )
 
         return results
 
@@ -169,17 +178,17 @@ class Device:
                 f"password {configuration['console_password']}",
                 "login"
             ])
-
-        if configuration.get("vty_protocols") == "both":
-            config_lines.extend([
-                "line vty 0 4",
-                "transport input all"
-            ])
-        elif configuration.get("vty_protocols") == "ssh":
-            config_lines.extend([
-                "line vty 0 4",
-                "transport input ssh"
-            ])
+        if "vty_protocols" in configuration:
+            if len(configuration.get("vty_protocols")) > 1:
+                config_lines.extend([
+                    "line vty 0 15",
+                    "transport input telnet ssh"
+                ])
+            elif len(configuration.get("vty_protocols")) == 1:
+                config_lines.extend([
+                    "line vty 0 15",
+                    "transport input ssh"
+                ])
 
 
         if "enable_passwd" in configuration:

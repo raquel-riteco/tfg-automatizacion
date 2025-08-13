@@ -78,10 +78,13 @@ class Connector:
                 service_password_encryption = True
                 break
 
-        console_password = False
+        console_access = None
         for p in parse.find_objects(r'^line con'):
-            if p.text.startswith('line con') and p.has_child_with(r'password'):
-                console_password = True
+            if p.has_child_with(r'^\s*login\s+local\b'):
+                console_access = "local_database"
+                break
+            if p.has_child_with(r'^\s*login\b') and p.has_child_with(r'^\s*password(?:\s+\d+)?\s+\S+'):
+                console_access = "password"
                 break
 
         has_enable_password = False
@@ -96,23 +99,19 @@ class Connector:
                 vty_password = True
                 break
 
-        transport_input = []
+        vty_protocols = []
         for p in parse.find_objects(r'^line vty'):
             if p.re_search_children(r'transport input'):
                 proto = p.re_match_iter_typed(r'transport input (\S+)', default=None)
-                transport_input.append(proto)
-
-        protocols = []
-        for proto in transport_input:
-            if proto and proto not in protocols:
-                protocols.append(proto)
+                if proto not in vty_protocols:
+                    vty_protocols.append(proto)
 
         device_info["security"] = {
             "is_encrypted": service_password_encryption,
-            "console_by_password": console_password,
+            "console_access": console_access,
             "enable_by_password": has_enable_password,
             "vty_by_password": vty_password,
-            "protocols": protocols
+            "vty_protocols": vty_protocols
         }
 
         if connect_info['device_type'] == 'R':
@@ -335,7 +334,41 @@ class Connector:
         }
 
         conn = ConnectHandler(**device)
-        output = conn.send_config_set(config_lines)
+
+        output_chunks = []
+
+        conn.config_mode()
+
+        for cmd in config_lines:
+            # Deleting a user can trigger "Do you want to continue? [confirm]"
+            if re.search(r"^\s*no\s+username\s+\S+", cmd, flags=re.I):
+                out = conn.send_command_timing(
+                    cmd,
+                    read_timeout=30,
+                    strip_prompt=False,
+                    strip_command=False,
+                )
+                if re.search(r"\[confirm\]", out, flags=re.I):
+                    out += conn.send_command_timing(
+                        "\n",
+                        read_timeout=30,
+                        strip_prompt=False,
+                        strip_command=False,
+                    )
+                output_chunks.append(out)
+            else:
+                # Normal config commands
+                out = conn.send_config_set(
+                    [cmd],
+                    exit_config_mode=False,
+                    cmd_verify=False,
+                    read_timeout=30,
+                )
+                output_chunks.append(out)
+
+        if conn.check_config_mode():
+            conn.exit_config_mode()
 
         conn.disconnect()
-        return output
+
+        return "\n".join(output_chunks)

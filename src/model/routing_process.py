@@ -12,13 +12,12 @@ class OSPF:
         
 
     def update(self, config_info: dict) -> None:
-        if config_info['reference-bandwidth']: self.bw_cost = config_info['reference-bandwidth']
-        if config_info['network_ip']:
+        if 'reference-bandwidth' in config_info: self.bw_cost = config_info['reference-bandwidth']
+        if 'network_ip' in config_info:
             self.networks.append({'network': IPv4Network(config_info['network_ip']),
                                   'network_area': config_info['network_wildcard']})
-        if config_info['reference-bandwidth']: self.bw_cost = config_info['reference-bandwidth']
-        if config_info['reference-bandwidth']: self.bw_cost = config_info['reference-bandwidth']
-        if config_info['reference-bandwidth']: self.bw_cost = config_info['reference-bandwidth']
+        if 'router_id' in config_info: self.routing_ip = config_info['router_id']
+        if 'is_redistribute' in config_info: self.redistribute = config_info['is_redistribute']
 
 
     def get_info(self) -> dict:
@@ -74,12 +73,12 @@ class RoutingProcess:
             
             
     def update(self, config_info: dict) -> None:
-        if config_info['dest_ip'] and config_info['next_hop'] and config_info['admin_distance']:
+        if 'dest_ip' in config_info and 'next_hop' in config_info and 'admin_distance' in config_info:
             self.static_routes.append(StaticRoute(IPv4Network(config_info['dest_ip']),
                                                   IPv4Address(config_info['next_hop']),
                                                   config_info['admin_distance']))
 
-        if config_info['process_id']:
+        if 'process_id' in config_info:
             found = False
             for ospf_process in self.ospf_processes:
                 if ospf_process.id == config_info['process_id']:
@@ -88,7 +87,7 @@ class RoutingProcess:
                     break
             if not found:
                 networks = None
-                if config_info['network_ip']:
+                if 'network_ip' in config_info:
                     networks = list()
                     networks.append({'network_ip': IPv4Network(config_info['network_ip']),
                                      'network_area': config_info['network_area']})

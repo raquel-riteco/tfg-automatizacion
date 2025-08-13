@@ -8,11 +8,12 @@ class Interface:
         
         
     def update(self, config_info: dict) -> None:
-        if config_info['iface_desc']: self.description = config_info['iface_desc']
-        if config_info['iface_shutdown']: self.is_up = config_info['iface_shutdown']
+        if 'iface_desc' in config_info: self.description = config_info['iface_desc']
+        if 'iface_shutdown' in config_info: self.is_up = config_info['iface_shutdown']
 
     def get_info(self) -> dict:
         info = dict()
+        info["name"] = self.name
         info['description'] = self.description
         info['is_up'] = self.is_up
         return info

@@ -18,30 +18,30 @@ class L3Interface(Interface):
     def update(self, config_info: dict) -> None:
         super().update(config_info)
 
-        if config_info['ip_addr']: self.ip_address = IPv4Address(config_info['ip_addr'])
-        if config_info['netmask']: self.netmask = IPv4Address(config_info['netmask'])
+        if 'ip_addr' in config_info: self.ip_address = IPv4Address(config_info['ip_addr'])
+        if 'netmask' in config_info: self.netmask = IPv4Address(config_info['netmask'])
 
-        if config_info['hsrp_group']:
+        if 'hsrp_group' in config_info:
             self.l3_redundancy['hsrp_group'] = config_info['hsrp_group']
             self.l3_redundancy['hsrp_virtual_ip'] = IPv4Address(config_info['hsrp_virtual_ip'])
             self.l3_redundancy['hsrp_priority'] = config_info['hsrp_priority']
             self.l3_redundancy['preempt'] = config_info['preempt']
 
-        if config_info['ospf']:
-            if config_info['ospf']['hello_interval']:
+        if 'ospf' in config_info:
+            if 'hello_interval' in config_info['ospf']:
                 self.ospf['hello_interval'] = config_info['ospf']['hello_interval']
-            if config_info['ospf']['dead_interval']:
+            if 'dead_interval' in config_info['ospf']:
                 self.ospf['dead_interval'] = config_info['ospf']['dead_interval']
-            if config_info['ospf']['is_passive']:
+            if 'is_passive' in config_info['ospf']:
                 self.ospf['is_passive'] = config_info['ospf']['is_passive']
-            if config_info['ospf']['priority']:
+            if 'priority' in config_info['ospf']:
                 self.ospf['priority'] = config_info['ospf']['priority']
-            if config_info['ospf']['cost']:
+            if 'cost' in config_info['ospf']:
                 self.ospf['cost'] = config_info['ospf']['cost']
-            if config_info['ospf']['is_pint_to_point']:
+            if 'is_pint_to_point' in config_info['ospf']:
                 self.ospf['is_pint_to_point'] = config_info['ospf']['is_pint_to_point']
 
-        if config_info['helper_address']: self.helper_address = IPv4Address(config_info['helper_address'])
+        if 'helper_address' in config_info: self.helper_address = IPv4Address(config_info['helper_address'])
 
 
     def get_info(self) -> dict:

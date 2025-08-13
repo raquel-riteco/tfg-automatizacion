@@ -157,14 +157,23 @@ class View:
                 ))
 
         while True:
+            found = 0
             string = input(f"Enter device's management IP address: ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
                 return options.exit
             try:
                 ip = IPv4Address(string)
-                info["mgmt_ip"] = ip
-                break
+                for d in devices:
+                    if ip == d['mgmt_ip']:
+                        print(parse_error("A device with this name already exists."))
+                        found = 1
+                        break
+
+                if not found:
+                    info["mgmt_ip"] = ip
+                    break
+
             except:
                 print(parse_error("The IP address is not valid."))
                    

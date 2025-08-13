@@ -984,6 +984,17 @@ class RouterMenu(DeviceMenu):
                     case 5:
                         info = self.device_banner_motd(device)
                     case 6:
+                        option = self.show_device_security_config()
+                        match option:
+                            case 1:
+                                info = self.device_encrypt_passwd(device)
+                            case 2:
+                                info = self.device_console_access(device)
+                            case 3:
+                                info =  self.device_vty_access(device)
+                            case 4:
+                                info = self.device_enable_passwd(device)
+                    case 7:
                         info = self.save_running_config()
 
             case 2:

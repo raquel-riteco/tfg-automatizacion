@@ -24,15 +24,15 @@ class Router(Device):
     def update(self, config_info: dict) -> None:
         super().update(config_info)
 
-        if config_info['iface']:
-            if config_info['subiface_num']:
+        if 'iface' in config_info:
+            if 'subiface_num' in config_info:
                 self.interfaces.append(L3Interface(f"{config_info['iface']}.{config_info['subiface_num']}",
                                                    False))
             else:
                 for iface in self.interfaces:
                     if config_info['iface'] == iface.name:
                         iface.update(config_info)
-        if config_info['iface_list']:
+        if 'iface_list' in config_info:
             for config_iface in config_info['iface_list']:
                 for iface in self.interfaces:
                     if config_iface == iface.name:
