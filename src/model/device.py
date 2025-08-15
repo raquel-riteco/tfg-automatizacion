@@ -7,6 +7,7 @@ from nornir_napalm.plugins.tasks import napalm_get
 from ciscoconfparse import CiscoConfParse
 
 from model.security import Security
+from model.interface import normalize_iface
 
 class Device:
     def __init__(self, hostname: str, mgmt_ip: IPv4Address, mgmt_iface: str, security: dict = None,
@@ -15,7 +16,7 @@ class Device:
                                  security['enable_by_password'], security["vty_protocols"])
         self.hostname = hostname
         self.mgmt_ip = mgmt_ip
-        self.mgmt_iface = mgmt_iface
+        self.mgmt_iface = normalize_iface(mgmt_iface)
         self.users = users
         self.banner = banner
         self.ip_domain_lookup = ip_domain_lookup
@@ -193,10 +194,6 @@ class Device:
 
         if "enable_passwd" in configuration:
             config_lines.append(f"enable secret {configuration['enable_passwd']}")
-
-        if not config_lines:
-            print("No configuration to apply.")
-            return config_lines
 
         return config_lines
 

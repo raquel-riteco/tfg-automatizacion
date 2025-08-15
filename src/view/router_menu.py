@@ -1,6 +1,8 @@
 from ipaddress import IPv4Network
 from typing import Tuple
 
+from model.interface import normalize_iface
+
 from view.device_menu import DeviceMenu
 from view.view_parser import parse_error, parse_warning
 import ipaddress as ip
@@ -34,6 +36,27 @@ class RouterMenu(DeviceMenu):
         super().__init__()
 
     #### PRIVATE FUNCTIONS ####
+
+    def __show_l3_ifaces__(self, device: dict) -> None:
+        """
+        Displays the Layer 3 interfaces of a given device.
+
+        Args:
+            device (dict): Dictionary containing device information, including:
+                - device_name (str): The name of the device.
+                - iface_list (list): List of interfaces, each with:
+                    - name (str): The name of the interface.
+                    - address (str): The IP address of the interface.
+                    - state (str): The state of the interface.
+        """
+
+        print(f"\nDevice {device['device_name']} interfaces: ")
+        print(f"{'IFACE NAME':<25} {'IFACE ADDRESS':<20} {'IFACE STATE':<6}")
+        for iface in device["iface_list"]:
+            state = "Up" if iface['is_up'] else "Down"
+            ip_addr = iface.get('ip_addr') if iface.get('ip_addr') is not None else "None"
+            print(f"{iface['name']:<25} {ip_addr:<20} {state:<6}")
+
 
     def __show_router_config_menu__(self) -> int:
         """
@@ -70,19 +93,19 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             if string:
                 for iface in device["iface_list"]:
-                    if iface["name"] == string:
+                    if iface["name"] == normalize_iface(string):
                         found = 1
                         break
                 if not found:
                     print(parse_error("This interface does not exist."))
                 else:
-                    info["iface"] = string
+                    info["iface"] = normalize_iface(string)
                     break
 
         info["option"] = self.__show_menu__(R_L3_IFACE_CONFIG)
         return info
 
-    def __router_iface_ip_address__(self, devices: list) -> int | dict:
+    def __router_iface_ip_address__(self, info: dict, devices: list) -> int | dict:
         """
         Configure IP address for an interface in the network.
 
@@ -96,7 +119,6 @@ class RouterMenu(DeviceMenu):
                 - "ip_addr": str   # Configured IP address.
         """
 
-        info = dict()
         while True:
             string = input("Enter ip address: ")
             if string.lower() == "exit":
@@ -108,7 +130,7 @@ class RouterMenu(DeviceMenu):
                     found = 0
                     for dev in devices:
                         for iface in dev["iface_list"]:
-                            if iface["iface_list"] == string:
+                            if iface["ip_addr"] == string:
                                 print(parse_error("There is another iface in the network with this IP."))
                                 found = 1
 
@@ -126,13 +148,13 @@ class RouterMenu(DeviceMenu):
             if string:
                 try:
                     ip.ip_network(f"{info['ip_addr']}/{string}", strict=False)
-                    info['netmask'] = string
+                    info['mask'] = string
                     return info
                 except ValueError:
                     print(parse_error("The mask is not valid."))
 
 
-    def __router_subiface_config__(self, device: dict) -> int | dict:
+    def __router_subiface_config__(self, info: dict, device: dict) -> int | dict:
         """
         Configure subinterface number for the specified device.
 
@@ -145,7 +167,6 @@ class RouterMenu(DeviceMenu):
                 - "subiface_num": str  # Configured subinterface number.
         """
 
-        info = dict()
         while True:
             string = input("Enter subinterface num: ")
             if string.lower() == "exit":
@@ -999,16 +1020,16 @@ class RouterMenu(DeviceMenu):
 
             case 2:
                 # L3 iface config
-                option = self.__show_router_l3_iface_config__(device)
-                match option:
+                info = self.__show_router_l3_iface_config__(device)
+                match info.get('option'):
                     case 1:
-                        info = self.__router_iface_ip_address__(devices)
+                        info = self.__router_iface_ip_address__(info, devices)
                     case 2:
-                        info = self.__router_subiface_config__(device)
+                        info = self.__router_subiface_config__(info, device)
                     case 3:
-                        info = self.device_iface_description()
+                        info = self.device_iface_description(info)
                     case 4:
-                        info = self.device.device_iface_shutdown()
+                        info = self.device_iface_shutdown(info)
 
             case 3:
                 # Redundancy config (HSRP)

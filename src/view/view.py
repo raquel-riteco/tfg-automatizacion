@@ -209,12 +209,12 @@ class View:
             return
 
         print(f"\nLIST OF DEVICES -> num devices = {len(devices)}")
-        print(f"{'ID':<4}{'NAME':<20}{'TYPE':<8}{'MGMT IFACE':<15}{'MGMT IP ADDRESS':<15}")
+        print(f"{'ID':<4}{'NAME':<20}{'TYPE':<8}{'MGMT IFACE':<20}{'MGMT IP ADDRESS':<15}")
         print("-" * 65)
 
         for i, d in enumerate(devices, 1):
             ip = d['mgmt_ip'].exploded
-            print(f"{i:<4}{d['device_name']:<20}{d['device_type']:<8}{d['mgmt_iface']:<15}{ip:<15}")
+            print(f"{i:<4}{d['device_name']:<20}{d['device_type']:<8}{d['mgmt_iface']:<20}{ip:<15}")
     
     
     def __get_device_by__(self, devices: list, action: str) -> int | dict:

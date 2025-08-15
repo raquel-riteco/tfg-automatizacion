@@ -19,7 +19,7 @@ class L3Interface(Interface):
         super().update(config_info)
 
         if 'ip_addr' in config_info: self.ip_address = IPv4Address(config_info['ip_addr'])
-        if 'netmask' in config_info: self.netmask = IPv4Address(config_info['netmask'])
+        if 'mask' in config_info: self.netmask = IPv4Address(config_info['mask'])
 
         if 'hsrp_group' in config_info:
             self.l3_redundancy['hsrp_group'] = config_info['hsrp_group']

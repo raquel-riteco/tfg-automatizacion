@@ -19,17 +19,16 @@ class DeviceController:
     def __execute_device_config__(self, device_info: dict, device_config: dict) -> None:
         if "device_name" in device_config:
             self.files.modify_name_in_hosts(device_info["device_name"], device_config["device_name"])
+            device_name_config = dict()
+            device_name_config["device_name"] = device_config["device_name"]
+            self.device.update(device_name_config)
         try:
             config_lines = self.device.config(device_config)
             access_data = self.files.get_user_and_pass()
             output = self.connector.push_config_with_netmiko(self.device.mgmt_ip.exploded, access_data, config_lines)
 
-            # Important to call get and not pass the params directly because they may not exist in the
-            # device_config dictionary.
-            self.device.update(device_config)
-
             verify = self.device.verify_config_applied(device_config)
-
+            print()
             if len(verify) == 0:
                 self.view.print_warning("No configuration changes were made.")
             else:
@@ -38,6 +37,8 @@ class DeviceController:
                         self.view.print_ok(f"{key} configured correctly.")
                     else:
                         self.view.print_warning(f"{key} was not configured.")
+
+                self.device.update(device_config)
 
             if device_config.get('save_config'):
                 ok = self.device.save_config()

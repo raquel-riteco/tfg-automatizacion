@@ -61,24 +61,6 @@ class DeviceMenu:
         for user in device["users"]:
             print(f"{user['username']:<20} {user['privilege']:<10}")
 
-    def __show_l3_ifaces__(self, device: dict) -> None:
-        """
-        Displays the Layer 3 interfaces of a given device.
-
-        Args:
-            device (dict): Dictionary containing device information, including:
-                - device_name (str): The name of the device.
-                - iface_list (list): List of interfaces, each with:
-                    - name (str): The name of the interface.
-                    - address (str): The IP address of the interface.
-                    - state (str): The state of the interface.
-        """
-
-        print(f"Device {device['device_name']} interfaces: ")
-        print(f"IFACE NAME\tIFACE ADDRESS\tIFACE STATE")
-        for iface in device["iface_list"]:
-            print(f"{iface['name']}\t{iface['address']}\t{iface['state']}\t")
-
     #### PUBLIC FUNCTIONS ####
 
     ### DEVICE GENERIC CONFIG ###
@@ -528,7 +510,7 @@ class DeviceMenu:
                     case _:
                         print(parse_error("Invalid option."))
 
-    def device_iface_description(self) -> int | dict:
+    def device_iface_description(self, info: dict) -> int | dict:
         """
         Change the interface description.
 
@@ -538,7 +520,6 @@ class DeviceMenu:
                 - "iface_desc": str  # New interface description
         """
 
-        info = dict()
         while True:
             string = input("Enter iface description: ")
             if string.lower() == "exit":
@@ -549,7 +530,7 @@ class DeviceMenu:
                 return info
 
 
-    def device_iface_shutdown(self) -> int | dict:
+    def device_iface_shutdown(self, info: dict) -> int | dict:
         """
         Shutdown or activate an interface.
 
@@ -559,7 +540,6 @@ class DeviceMenu:
                 - "iface_shutdown": bool
         """
 
-        info = dict()
         while True:
             string = input("Want to shutdown (1) or no shutdown (activate) (2) the interface (1 | 2)? ")
             match string.lower():
