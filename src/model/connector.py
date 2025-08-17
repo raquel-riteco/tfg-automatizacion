@@ -303,19 +303,42 @@ class Connector:
                     if 'network' in child.text:
                         net = child.re_match_iter_typed(r'network (\S+ \S+) area (\d+)', default=None)
                         if net:
-                            # TODO: SEPARATE network dict into network_ip and network_wildcard
                             networks.append({"network": IPv4Network(net[0]), "area": int(net[1])})
+
+                router_id = next(
+                    (c.re_match_iter_typed(r'^\s*router-id\s+(\S+)', default=None) for c in ospf.children
+                     if 'router-id' in c.text),
+                    None
+                )
+
+                # Reference bandwidth (in Mbps)
+                reference_bw = next(
+                    (c.re_match_iter_typed(r'^\s*auto-cost\s+reference-bandwidth\s+(\d+)',
+                                           result_type=int, default=None) for c in ospf.children
+                    if 'reference-bandwidth' in c.text),
+                    None
+                )
+
+                redistribute_static_subnets = any(
+                    re.search(r'^\s*redistribute\s+static(?:\s+\S+)*\s+subnets\b', c.text)
+                    for c in ospf.children
+                )
+
                 ospf_processes.append({
                     "process_id": process_id,
-                    "networks": networks
+                    "networks": networks,
+                    "bw_cost": reference_bw,
+                    "redistribute": redistribute_static_subnets,
+                    "router_id": router_id
                 })
 
             for line in parse.find_lines(r'^ip route'):
                 parts = line.split()
                 if len(parts) >= 4:
                     static_routes.append({
-                        "destination": IPv4Network(f"{parts[2]} {parts[3]}"),
-                        "next_hop": IPv4Address(parts[4]) if len(parts) > 4 else None
+                        "destination": IPv4Network(f"{parts[2]}/{parts[3]}"),
+                        "next_hop": IPv4Address(parts[4]),
+                        "admin_dist": parts[5] if len(parts) > 5 else 1
                     })
 
             device_info["routing_process"] = {

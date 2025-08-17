@@ -56,6 +56,7 @@ class Router(Device):
             device_info["iface_list"].append(iface.get_info())
 
         device_info["dhcp"] = self.dhcp.get_info()
+        device_info["routing"] = self.routing_process.get_info()
 
         return device_info
 
@@ -87,15 +88,14 @@ class Router(Device):
             elif configuration.get("iface_shutdown") is False:
                 config_lines.append("no shutdown")
 
-        # HSRP REDUNDANCY
-        if ({"hsrp_virtual_ip", "iface_list", "hsrp_group", "hsrp_priority", "hsrp_preempt"}
-                <= configuration.keys()):
-            grp = configuration["hsrp_group"]
-            prio = configuration["hsrp_priority"]
-            preempt = configuration["preempt"]
-            vip = configuration.get("hsrp_virtual_ip")
+            # HSRP REDUNDANCY
+            if ({"hsrp_virtual_ip", "hsrp_group", "hsrp_priority", "hsrp_preempt"}
+                    <= configuration.keys()):
+                grp = configuration["hsrp_group"]
+                prio = configuration["hsrp_priority"]
+                preempt = configuration["preempt"]
+                vip = configuration.get("hsrp_virtual_ip")
 
-            for iface in configuration["iface_list"]:
                 config_lines += [f"interface {iface}"]
                 config_lines.append(f"standby {grp} ip {vip}")
                 config_lines.append(f"standby {grp} priority {prio}")
@@ -136,16 +136,9 @@ class Router(Device):
             ad = configuration.get("admin_distance")
             dest = str(configuration["dest_ip"])
 
-            if "/" in dest:
-                net = IPv4Network(dest, strict=False)
-                dest_ip = net.network_address.exploded
-                mask = net.netmask.exploded
-            else:
-                parts = dest.split()
-                if len(parts) == 2:
-                    dest_ip, mask = parts
-                else:
-                    raise ValueError("dest_ip must be 'A.B.C.D/M' or 'A.B.C.D MASK'")
+            net = IPv4Network(dest, strict=False)
+            dest_ip = net.network_address.exploded
+            mask = net.netmask.exploded
 
             nh = str(configuration["next_hop"])
             if ad is not None:
@@ -164,18 +157,17 @@ class Router(Device):
                     config_lines.append(f"router-id {configuration['router_id']}")
                 if "reference-bandwidth" in configuration:
                     config_lines.append(f"auto-cost reference-bandwidth {configuration['reference-bandwidth']}")
-                if {"network_ip", "network_wildcard", "network_area"} <= configuration.keys():
-                    nip = configuration["network_ip"]
-                    wc = configuration["network_wildcard"]
+                if {"network_ip", "network_area"} <= configuration.keys():
+                    net = IPv4Network(configuration["network_ip"], strict=False)
+                    nip = net.network_address.exploded
+                    wc = net.hostmask.exploded
+
                     area = configuration["network_area"]
                     config_lines.append(f"network {nip} {wc} area {area}")
                 if configuration.get("is_redistribute") is True:
-                    what = configuration.get("redistribute_what", "connected")
-                    # add 'subnets' for most protocols
-                    if what in ("connected", "static", "rip", "eigrp", "bgp"):
-                        config_lines.append(f"redistribute {what} subnets")
-                    else:
-                        config_lines.append(f"redistribute {what}")
+                    config_lines.append(f"redistribute static subnet")
+                elif configuration.get("is_redistribute") is False:
+                    config_lines.append(f"no redistribute static subnet")
 
             if isinstance(configuration.get("iface_list"), list) and configuration["iface_list"]:
                 for item in configuration["iface_list"]:
@@ -337,11 +329,11 @@ class Router(Device):
                     dns_ok = True
                 pool_ok = net_ok and gw_ok and dns_ok
 
-                results[f"dhcp pool {pool}_network"] = net_ok
-                results[f"dhcp pool {pool}_gateway"] = gw_ok
+                results[f"dhcp pool {pool} network"] = net_ok
+                results[f"dhcp pool {pool} gateway"] = gw_ok
                 if dns:
                     results[f"dhcp_pool {pool} dns"] = dns_ok
-            results["dhcp_pool"] = pool_ok
+            results["dhcp pool"] = pool_ok
 
         # STATIC ROUTING
 
@@ -350,22 +342,15 @@ class Router(Device):
             nh = str(configuration["next_hop"])
             ad = configuration.get("admin_distance")
 
-            if "/" in dest:
-                net = IPv4Network(dest, strict=False)
-                dip = net.network_address.exploded
-                msk = net.netmask.exploded
-            else:
-                parts = dest.split()
-                if len(parts) == 2:
-                    dip, msk = parts
-                else:
-                    raise ValueError("dest_ip must be 'A.B.C.D/M' or 'A.B.C.D MASK'")
+            net = IPv4Network(dest, strict=False)
+            dip = net.network_address.exploded
+            msk = net.netmask.exploded
 
-            if ad is not None:
+            if ad is not None and ad != 1:
                 pat = rf'^ip\s+route\s+{re.escape(dip)}\s+{re.escape(msk)}\s+{re.escape(nh)}\s+{int(ad)}\s*$'
             else:
                 pat = rf'^ip\s+route\s+{re.escape(dip)}\s+{re.escape(msk)}\s+{re.escape(nh)}\s*$'
-            key = f"static_route_{dip}_{msk}_{nh}" + (f"_{ad}" if ad is not None else "")
+            key = f"static route {dip} {msk} {nh}" + (f" {ad}" if ad is not None else "")
             results[key] = bool(parse.find_lines(pat))
 
         # OSPF

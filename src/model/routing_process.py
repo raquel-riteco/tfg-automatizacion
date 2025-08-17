@@ -2,12 +2,15 @@ from typing import List, cast
 from ipaddress import IPv4Address, IPv4Network
 
 class OSPF:
-    def __init__(self, id: int, bw_cost: int = 10, networks: List[dict] = None, routing_ip: IPv4Address = None,
+    def __init__(self, id: int, bw_cost: int = 100, networks: List[dict] = None, router_id: IPv4Address = None,
                  redistribute: bool = False):
         self.id = id
         self.bw_cost = bw_cost
-        self.networks = networks
-        self.routing_ip = routing_ip
+        if networks is None:
+            self.networks = list()
+        else:
+            self.networks = networks
+        self.router_id = router_id
         self.redistribute = redistribute
         
 
@@ -15,8 +18,8 @@ class OSPF:
         if 'reference-bandwidth' in config_info: self.bw_cost = config_info['reference-bandwidth']
         if 'network_ip' in config_info:
             self.networks.append({'network': IPv4Network(config_info['network_ip']),
-                                  'network_area': config_info['network_wildcard']})
-        if 'router_id' in config_info: self.routing_ip = config_info['router_id']
+                                  'network_area': config_info['network_area']})
+        if 'router_id' in config_info: self.router_id = config_info['router_id']
         if 'is_redistribute' in config_info: self.redistribute = config_info['is_redistribute']
 
 
@@ -27,13 +30,13 @@ class OSPF:
         info['networks'] = list()
         for network in self.networks:
             dictionary = dict()
-            dictionary['network_ip'] = network['network_ip'].explode
-            dictionary['area'] = network['area']
+            dictionary['network'] = network['network'].exploded
+            dictionary['area'] = network['network_area']
             info['networks'].append(dictionary)
-        if self.routing_ip:
-            info['routing_ip'] = self.routing_ip
+        if self.router_id:
+            info['router_id'] = self.router_id
         else:
-            info['routing_ip'] = None
+            info['router_id'] = None
         info['redistribute'] = self.redistribute
         return info
 
@@ -64,11 +67,13 @@ class RoutingProcess:
     def __init__(self, ospf_processes: List[dict] = None, static_routes: List[dict] = None):
         self.static_routes = list()
         for static_route in static_routes:
-            new_static_route = StaticRoute(static_route["destination"], static_route["next_hop"], static_route["admin_dist"])
+            new_static_route = StaticRoute(static_route["destination"], static_route["next_hop"],
+                                           static_route["admin_dist"])
             self.static_routes.append(new_static_route)
         self.ospf_processes =  list()
         for ospf_process in ospf_processes:
-            new_ospf_process = OSPF(ospf_process["id"], ospf_process["bw_cost"], ospf_process["networks"], ospf_process["routing_id"], ospf_process["redistribute"])
+            new_ospf_process = OSPF(ospf_process["process_id"], ospf_process["bw_cost"], ospf_process["networks"],
+                                    ospf_process["router_id"], ospf_process["redistribute"])
             self.ospf_processes.append(new_ospf_process)
             
             
@@ -95,3 +100,13 @@ class RoutingProcess:
                                    config_info.get('router_id'), config_info.get('is_redistribute'))
                 self.ospf_processes.append(new_process)
 
+
+    def get_info(self) -> dict:
+        info = dict()
+        info['ospf'] = list()
+        for ospf in self.ospf_processes:
+            info['ospf'].append(ospf.get_info())
+        info['static_routes'] = list()
+        for static_route in self.static_routes:
+            info['static_routes'].append(static_route.get_info())
+        return info

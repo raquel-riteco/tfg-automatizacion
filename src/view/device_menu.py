@@ -1,3 +1,4 @@
+
 from view.view_parser import parse_error, parse_warning
 
 DEV_BASIC_CONFIG = ["DEVICE BASIC CONFIG MENU", "Device name", "IP domain lookup", "Add user", "Remove user",
@@ -510,7 +511,7 @@ class DeviceMenu:
                     case _:
                         print(parse_error("Invalid option."))
 
-    def device_iface_description(self, info: dict) -> int | dict:
+    def device_iface_description(self, description: str, info: dict) -> int | dict:
         """
         Change the interface description.
 
@@ -520,6 +521,10 @@ class DeviceMenu:
                 - "iface_desc": str  # New interface description
         """
 
+        if description == "":
+            print("There is currently no description configured.")
+        else:
+            print("Current description: ")
         while True:
             string = input("Enter iface description: ")
             if string.lower() == "exit":
@@ -530,7 +535,7 @@ class DeviceMenu:
                 return info
 
 
-    def device_iface_shutdown(self, info: dict) -> int | dict:
+    def device_iface_shutdown(self, is_up: bool, info: dict) -> int | dict:
         """
         Shutdown or activate an interface.
 
@@ -539,18 +544,30 @@ class DeviceMenu:
             dict: Updated interface description.
                 - "iface_shutdown": bool
         """
-
         while True:
-            string = input("Want to shutdown (1) or no shutdown (activate) (2) the interface (1 | 2)? ")
-            match string.lower():
-                case '1':
-                    info["iface_shutdown"] = True
-                    return info
-                case '2':
-                    info["iface_shutdown"] = False
-                    return info
-                case 'exit':
-                    print(parse_warning("Exit detected, operation not completed."))
-                    return EXIT
-                case _:
-                    print(parse_error("Invalid option."))
+            if is_up:
+                string = input("Interface is Up, want to shutdown (Y | N)? ")
+                match string.lower():
+                    case 'y':
+                        info["iface_shutdown"] = True
+                        return info
+                    case 'n':
+                        return EXIT
+                    case 'exit':
+                        print(parse_warning("Exit detected, operation not completed."))
+                        return EXIT
+                    case _:
+                        print(parse_error("Invalid option."))
+            else:
+                string = input("Interface is Down, want to no shutdown / set it up (Y | N)? ")
+                match string.lower():
+                    case 'y':
+                        info["iface_shutdown"] = False
+                        return info
+                    case 'n':
+                        return EXIT
+                    case 'exit':
+                        print(parse_warning("Exit detected, operation not completed."))
+                        return EXIT
+                    case _:
+                        print(parse_error("Invalid option."))

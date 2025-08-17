@@ -249,7 +249,7 @@ class View:
                     string = input("Enter id: ")
                     try:
                         found = int(string)
-                        if found < 1 | found > len(devices):
+                        if found < 1 or found > len(devices):
                             print(parse_error("This id does not exist."))
                         else:
                             info["action_by"] = "id"

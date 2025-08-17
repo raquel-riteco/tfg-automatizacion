@@ -184,7 +184,7 @@ class RouterMenu(DeviceMenu):
                 except ValueError:
                     print(parse_error("Subinterface number must be between 1 and 4096, both included."))
 
-    def __router_redundancy_config__(self, device: dict) -> int | dict:
+    def __router_redundancy_config__(self, device: dict, info: dict) -> int | dict:
         """
         Prompts the user for router redundancy configuration details and returns the information as a dictionary.
         If the user exits, the function returns EXIT.
@@ -203,93 +203,71 @@ class RouterMenu(DeviceMenu):
         """
 
         while True:
-            self.__show_l3_ifaces__(device)
-            info = dict()
-            while True:
-                string = input("Enter interfaces separated only by commas (ex: f0/0,f0/1,f0/2): ")
-                if string.lower() == "exit":
-                    print(parse_warning("Exit detected, operation not completed."))
-                    return EXIT
-                if string:
-                    iface_list = string.split(',')
-                    ok = 0
-                    for iface in iface_list:
-                        for x in device["iface_list"]:
-                            if iface == x["name"]:
-                                ok += 1
-                                break
-                    if ok != len(iface_list):
-                        print(parse_error("One or more ifaces are not valid."))
+            string = input("Enter group number: ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            if string:
+                try:
+                    num = int(string)
+                    if num < 1 or num > 255:
+                        print(parse_error("Enter a number between 1 and 255, both included."))
+
                     else:
-                        info["iface_list"] = iface_list
+                        info["hsrp_group"] = num
                         break
+                except ValueError:
+                    print(parse_error("Enter a number between 1 and 255, both included."))
 
-            while True:
-                string = input("Enter group number: ")
-                if string.lower() == "exit":
-                    print(parse_warning("Exit detected, operation not completed."))
-                    return EXIT
-                if string:
-                    try:
-                        num = int(string)
-                        if num < 1 or num > 255:
-                            print(parse_error("Enter a number between 1 and 255, both included."))
-
-                        else:
-                            info["hsrp_group"] = num
-                            break
-                    except ValueError:
-                        print(parse_error("Enter a number between 1 and 255, both included."))
-
-            while True:
-                string = input("Enter HSRP virtual IP address: ")
-                if string.lower() == "exit":
-                    print(parse_warning("Exit detected, operation not completed."))
-                    return EXIT
-                if string:
-                    try:
-                        ip.ip_address(string)
-                        info["hsrp_virtual_ip"] = string
-                        break
-                    except ValueError:
-                        print(parse_error("The IP address is not valid."))
-
-            while True:
-                string = input("Enter priority (default is 100): ")
-                if string.lower() == "exit":
-                    print(parse_warning("Exit detected, operation not completed."))
-                    return EXIT
-                if string:
-                    try:
-                        num = int(string)
-                        if num < 1 or num > 255:
-                            print(parse_error("Enter a number between 1 and 255, both included."))
-                        else:
-                            info["hsrp_priority"] = num
-                            break
-                    except ValueError:
-                        print(parse_error("Enter a number between 1 and 255, both included."))
-
-                else:
-                    info["hsrp_priority"] = 100
+        while True:
+            string = input("Enter HSRP virtual IP address: ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            if string:
+                try:
+                    ip.ip_address(string)
+                    info["hsrp_virtual_ip"] = string
                     break
+                except ValueError:
+                    print(parse_error("The IP address is not valid."))
 
-            while True:
-                string = input("Preempt (Y | N): ")
-                match string.lower():
-                    case "exit":
-                        print(parse_warning("Exit detected, operation not completed."))
-                        return EXIT
-                    case 'y':
-                        info["preempt"] = True
+        while True:
+            string = input("Enter priority (default is 100): ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            if string:
+                try:
+                    num = int(string)
+                    if num < 1 or num > 255:
+                        print(parse_error("Enter a number between 1 and 255, both included."))
+                    else:
+                        info["hsrp_priority"] = num
                         break
-                    case 'n':
-                        info["preempt"] = False
-                        break
-                    case _:
-                        print(parse_error("Invalid option."))
+                except ValueError:
+                    print(parse_error("Enter a number between 1 and 255, both included."))
 
-            return info
+            else:
+                info["hsrp_priority"] = 100
+                break
+
+        while True:
+            string = input("Preempt (Y | N): ")
+            match string.lower():
+                case "exit":
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                case 'y':
+                    info["preempt"] = True
+                    break
+                case 'n':
+                    info["preempt"] = False
+                    break
+                case _:
+                    print(parse_error("Invalid option."))
+
+        return info
 
     def __show_router_dhcp_menu__(self) -> int:
         """
@@ -327,7 +305,7 @@ class RouterMenu(DeviceMenu):
             elif string:
                 found = False
                 for iface in device['iface_list']:
-                    if iface == string.lower():
+                    if iface == normalize_iface(string):
                         found = True
                         info['iface'] = string
                         break
@@ -399,29 +377,25 @@ class RouterMenu(DeviceMenu):
             dict: Updated DHCP pool configuration.
                 - "pool_name": str,       # Name of the DHCP pool.
                 - "pool_network": ip_network,  # Network address of the DHCP pool.
-                - "pool_dns_ip": ip_address,   # (Optional) DNS IP address for the DHCP pool.
                 - "pool_gateway_ip": ip_address # Gateway IP address for the DHCP pool.
         """
 
         info = dict()
         while True:
-            found = 0
             string = input("Enter pool name: ")
             if string == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
             elif string:
-                for pool in device["dhcp_pool_list"]:
-                    if pool["pool_name"] == string:
-                        print(parse_error("This name already exists."))
-                        found = 1
+                for pool in device['dhcp']["pools"]:
+                    if pool["name"] == string:
+                        print(parse_warning("This name already exists."))
                         break
-                if not found:
-                    info["pool_name"] = string
-                    break
+                info["pool_name"] = string
+                break
 
         while True:
-            string = input("Enter network: ")
+            string = input("Enter network (IP AND MASK): ")
             if string == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
@@ -484,7 +458,7 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    ip = ip.ip_address(string)
+                    ip_addr = ip.ip_address(string)
                     break
                 except ValueError:
                     print(parse_error("Invalid IP address."))
@@ -496,8 +470,8 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    IPv4Network(f"{ip}/{string}")
-                    info["dest_ip"] = f"{ip}/{string}"
+                    IPv4Network(f"{ip_addr}/{string}")
+                    info["dest_ip"] = f"{ip_addr}/{string}"
                     break
                 except ValueError:
                     print(parse_error("Invalid IP mask."))
@@ -817,7 +791,7 @@ class RouterMenu(DeviceMenu):
         """
         return self.__show_menu__(R_ROUTING_OSPF_PROCESS)
 
-    def __router_routing_ospf_process_reference__(self, device: dict) -> int | dict:
+    def __router_routing_ospf_process_reference__(self, ospf_process: dict, info: dict) -> int | dict:
         """
         Configure the OSPF auto-cost reference bandwidth for the device.
 
@@ -829,7 +803,14 @@ class RouterMenu(DeviceMenu):
             int: EXIT if operation is cancelled.
             dict: Updated device with new reference-bandwidth.
         """
-        print(f"Device OSPF auto-cost reference bandwidth is: {device['ospf']['reference-bandwidth']}")
+        if 'bw_cost' in ospf_process:
+            if ospf_process['bw_cost'] is not None:
+                print(f"Device OSPF auto-cost reference bandwidth is: {ospf_process['bw_cost']}")
+            else:
+                print("Device OSPF auto-cost reference bandwidth is default, 100MB.")
+        else:
+            print("These aren't any OSPF processes configured.")
+
         while True:
             string = input("Enter reference-bandwidth (default 100 Mbps): ")
             if string.lower() == "exit":
@@ -841,12 +822,12 @@ class RouterMenu(DeviceMenu):
                     if num < 1 or num > 4294967:
                         print(parse_error("Invalid number, must be between 1 and 4294967, both included."))
                     else:
-                        device['ospf']['reference-bandwidth'] = num
-                        return device
+                        info['reference-bandwidth'] = num
+                        return info
                 except ValueError:
                     print(parse_error("Invalid number, must be between 1 and 4294967, both included."))
 
-    def __router_routing_ospf_process_network__(self, device: dict) -> int | dict:
+    def __router_routing_ospf_process_network__(self, ospf_process: dict, info: dict) -> int | dict:
         """
         Configure a new OSPF network statement for the device.
 
@@ -863,11 +844,16 @@ class RouterMenu(DeviceMenu):
                 - 'network_wildcard' (str): Wildcard mask.
                 - 'network_area' (int): OSPF area ID.
         """
-        print("Device OSPF networks:")
-        for network in device['ospf']['networks']:
-            print(f"{network}")
+        if 'networks' in ospf_process:
+            if len(ospf_process['networks']) > 0:
+                print("Device OSPF networks:")
+                for network in ospf_process['networks']:
+                    print(f"{network}")
+            else:
+                print("These aren't any networks configured.")
+        else:
+            print("These aren't any OSPF processes configured.")
 
-        info = dict()
         while True:
             string = input("Enter network ip address: ")
             if string.lower() == "exit":
@@ -875,7 +861,7 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    ip = ip.ip_address(string)
+                    ip_addr = ip.ip_address(string)
                     break
                 except ValueError:
                     print(parse_error("Invalid IP address."))
@@ -887,8 +873,8 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    ip.ip_network(f"{ip}/{string}")
-                    info['network_ip'] = f"{ip}/{string}"
+                    ip.ip_network(f"{ip_addr}/{string}")
+                    info['network_ip'] = f"{ip_addr}/{string}"
                     break
                 except ValueError:
                     print(parse_error("Invalid wildcard-mask."))
@@ -903,11 +889,11 @@ class RouterMenu(DeviceMenu):
                     info['network_area'] = int(string)
                     break
                 except ValueError:
-                    print(parse_error("Invalid wildcard-mask."))
+                    print(parse_error("Invalid area."))
 
         return info
 
-    def __router_routing_ospf_process_id__(self, device: dict) -> int | dict:
+    def __router_routing_ospf_process_id__(self, ospf_process: dict, info: dict) -> int | dict:
         """
         Configure the OSPF router ID for the device.
 
@@ -919,7 +905,14 @@ class RouterMenu(DeviceMenu):
             int: EXIT if operation is cancelled.
             dict: Updated device with new router-id.
         """
-        print(f"Device OSPF router-id: {device['ospf']['router_id']}")
+        if 'router_id' in ospf_process:
+            if ospf_process.get('router_id') is not None:
+                print(f"Device OSPF router-id: {ospf_process['router_id']}")
+            else:
+                print("These isn't a router_id configured.")
+        else:
+            print("These aren't any OSPF processes configured.")
+
         while True:
             string = input("Enter router-id: ")
             if string.lower() == "exit":
@@ -928,12 +921,12 @@ class RouterMenu(DeviceMenu):
             elif string:
                 try:
                     ip = ip.ip_address(string)
-                    device['ospf']['router_id'] = string
-                    break
+                    info['router_id'] = string
+                    return info
                 except ValueError:
                     print(parse_error("Invalid router-id, this must be a valid IP address."))
 
-    def __router_routing_ospf_process_redist__(self, device: dict) -> int | dict:
+    def __router_routing_ospf_process_redist__(self, ospf_process: dict, info: dict) -> int | dict:
         """
        Enable or disable OSPF route redistribution.
 
@@ -945,10 +938,14 @@ class RouterMenu(DeviceMenu):
            int: EXIT if operation is cancelled.
            dict: Updated device with redistribution setting.
        """
-        if device['ospf']['is_redistribute']:
-            print(f"Device OSPF redistribution is ENABLED.")
+        if 'is_redistribute' in ospf_process:
+            if ospf_process.get('is_redistribute') is True:
+                print(f"Device OSPF redistribution is ENABLED.")
+            else:
+                print(f"Device OSPF redistribution is NOT ENABLED.")
         else:
-            print(f"Device OSPF redistribution is NOT ENABLED.")
+            print("These aren't any OSPF processes configured.")
+
         while True:
             string = input("Set device OSPF to redistribute (y/n): ")
             if string.lower() == "exit":
@@ -956,17 +953,16 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 if string.lower() == 'y':
-                    device['ospf']['is_redistribute'] = True
+                    info['is_redistribute'] = True
                     break
                 elif string.lower() == 'n':
-                    device['ospf']['is_redistribute'] = False
+                    info['is_redistribute'] = False
                     break
                 else:
                     print(parse_error("Invalid option."))
-        return device
+        return info
 
     ### PUBLIC FUNCTIONS
-
 
     def show_router_menu(self, device: dict, devices: list, config_option: int = None) -> Tuple[dict, int] | int:
         """
@@ -1021,19 +1017,30 @@ class RouterMenu(DeviceMenu):
             case 2:
                 # L3 iface config
                 info = self.__show_router_l3_iface_config__(device)
-                match info.get('option'):
-                    case 1:
-                        info = self.__router_iface_ip_address__(info, devices)
-                    case 2:
-                        info = self.__router_subiface_config__(info, device)
-                    case 3:
-                        info = self.device_iface_description(info)
-                    case 4:
-                        info = self.device_iface_shutdown(info)
+                if info == EXIT:
+                    config_option = None
+                else:
+                    option = info.get('option')
+                    description = ""
+                    is_up = False
+                    for iface in device['iface_list']:
+                        if iface['name'] == info['iface']:
+                            description = iface['description'] if iface['description'] else ""
+                            is_up = iface['is_up']
+                    match option:
+                        case 1:
+                            info = self.__router_iface_ip_address__(info, devices)
+                        case 2:
+                            info = self.__router_subiface_config__(info, device)
+                        case 3:
+                            info = self.device_iface_description(description, info)
+                        case 4:
+                            info = self.device_iface_shutdown(is_up, info)
 
             case 3:
                 # Redundancy config (HSRP)
-                info = self.__router_redundancy_config__(device)
+                info = self.__show_router_l3_iface_config__(device)
+                info = self.__router_redundancy_config__(device, info)
 
             case 4:
                 # Routing config
@@ -1045,7 +1052,9 @@ class RouterMenu(DeviceMenu):
                     case 2:
                         # OSPF
                         info = self.__show_router_routing_ospf_menu__(device)
-                        if info != EXIT:
+                        if info == EXIT:
+                            config_option = None
+                        else:
                             if info['option'] == 1:
                                 # Ifaces
                                 option = self.__show_router_routing_ospf_ifaces__()
@@ -1066,15 +1075,19 @@ class RouterMenu(DeviceMenu):
                             else:
                                 # Process
                                 option = self.__show_router_routing_ospf_process__()
+                                ospf_process = dict()
+                                for process in device['routing']['ospf']:
+                                    if process['id'] == info['process_id']:
+                                        ospf_process = process
                                 match option:
                                     case 1:
-                                        info = self.__router_routing_ospf_process_reference__(device)
+                                        info = self.__router_routing_ospf_process_reference__(ospf_process, info)
                                     case 2:
-                                        info = self.__router_routing_ospf_process_network__(device)
+                                        info = self.__router_routing_ospf_process_network__(ospf_process, info)
                                     case 3:
-                                        info = self.__router_routing_ospf_process_id__(device)
+                                        info = self.__router_routing_ospf_process_id__(ospf_process, info)
                                     case 4:
-                                        info = self.__router_routing_ospf_process_redist__(device)
+                                        info = self.__router_routing_ospf_process_redist__(ospf_process, info)
 
             case 5:
                 # DHCP config

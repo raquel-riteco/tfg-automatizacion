@@ -103,6 +103,8 @@ class DeviceController:
                 if returned != options.exit:
                     info, option = returned
                     if info != -1:
+                        if 'iface' in info and len(info) <= 2:
+                            info = dict()
                         if len(info) > 0:
                             self.__execute_device_config__(self.device.get_device_info(), info)
                         else:

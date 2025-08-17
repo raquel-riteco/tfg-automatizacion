@@ -20,14 +20,14 @@ class DHCP:
         info = dict()
 
         info['excluded_address'] = list()
-        for excluded in info['excluded_address']:
+        for excluded in self.excluded_addresses:
             dictionary = dict()
-            if excluded['start']:
-                dictionary['start'] = excluded['start'].explode
+            if excluded.get('start') is not None:
+                dictionary['start'] = excluded['start'].exploded
             else:
                 dictionary['start'] = None
-            if excluded['end']:
-                dictionary['end'] = excluded['end'].explode
+            if excluded.get('end') is not None:
+                dictionary['end'] = excluded['end'].exploded
             else:
                 dictionary['end'] = None
             info['excluded_address'].append(dictionary)
@@ -35,12 +35,12 @@ class DHCP:
         info['pools'] = list()
         for pool in self.pools:
             dictionary = dict()
-            if pool['network']:
-                dictionary['network'] = pool['network'].explode
+            if pool.get('network') is not None:
+                dictionary['network'] = pool['network'].exploded
             else:
                 dictionary['network'] = None
-            if dictionary['default_router']:
-                dictionary['default_router'] = pool['default_router'].explode
+            if pool.get('default_router') is not None:
+                dictionary['default_router'] = pool['default_router'].exploded
             else:
                 dictionary['default_router'] = None
             dictionary['name'] = pool['name']
