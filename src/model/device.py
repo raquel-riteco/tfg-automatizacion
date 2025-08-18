@@ -1,62 +1,209 @@
 
 from typing import List, cast
 from ipaddress import IPv4Address
+from nornir import InitNornir
+from nornir_netmiko.tasks import netmiko_save_config
+from nornir_napalm.plugins.tasks import napalm_get
+from ciscoconfparse import CiscoConfParse
 
 from model.security import Security
-from model.l3_interface import L3Interface
+from model.interface import normalize_iface
 
 class Device:
-    def __init__(self, hostname: str, mgmt_ip: IPv4Address, mgmt_iface: str, security: dict, interfaces: List[dict], users: List[dict] = None, banner: str = None):
-        self.security = Security(security["is_encrypted"], security["console_by_password"], security["vty_by_password"], security["protocols"])
-        self.interfaces = []
-        for interface in interfaces:
-            new_interface = L3Interface(interface["name"], interface["is_up"], interface["description"], interface["ip_address"], interface["ospf"], interface["l3_redundancy"])
-            self.interfaces.append(new_interface)
+    def __init__(self, hostname: str, mgmt_ip: IPv4Address, mgmt_iface: str, security: dict = None,
+                 users: List[dict] = None, banner: str = None, ip_domain_lookup: bool = False):
+        self.security = Security(security["is_encrypted"], security["console_access"],
+                                 security['enable_by_password'], security["vty_protocols"])
         self.hostname = hostname
         self.mgmt_ip = mgmt_ip
-        self.mgmt_iface = mgmt_iface
+        self.mgmt_iface = normalize_iface(mgmt_iface)
         self.users = users
         self.banner = banner
-        
-    
-    def update(self, hostname: str, interfaces: List[dict], security: dict, users: List[dict], banner: str = None) -> None:
-        """
-        Updates device settings, including hostname, interfaces, security configurations, users, and banner.
+        self.ip_domain_lookup = ip_domain_lookup
 
-        Sets the hostname, updates each interface with specified attributes, adjusts security settings, 
-        and updates the list of users and optional device banner.
 
-        Args:
-            hostname (str): The hostname of the device.
-            interfaces (List[dict]): List of dictionaries containing interface information, where each dictionary has:
-                - "name" (str): Interface name.
-                - "is_up" (bool): Interface status.
-                - "description" (str): Interface description.
-                - "ip_address" (IPv4Address): IP address assigned to the interface.
-                - "ospf" (bool): Whether OSPF is enabled.
-                - "l3_redundancy" (str): Layer 3 redundancy configuration.
-            security (dict): Dictionary containing security settings, including:
-                - "is_encrypted" (bool): Whether security is encrypted.
-                - "console_by_password" (bool): Console access secured by password.
-                - "vty_by_password" (bool): VTY (Virtual Teletype) access secured by password.
-                - "protocols" (list): List of enabled security protocols.
-            users (List[dict]): List of dictionaries with user information.
-            banner (str, optional): Device banner message.
+    def update(self, config_info: dict) -> None:
 
-        Returns:
-            None
-        """
-        self.hostname = hostname
-        for i in range(len(self.interfaces)):
-            interface = cast(L3Interface, self.interfaces[i])
-            interface.update(interfaces[i]["name"], interfaces[i]["is_up"], interfaces[i]["description"], interfaces[i]["ip_address"], interfaces[i]["ospf"], interfaces[i]["l3_redundancy"])
-        self.security.update(security["is_encrypted"], security["console_by_password"], security["vty_by_password"], security["protocols"])
-        self.users = users
-        self.banner = banner
-        
-        
+        if 'device_name' in config_info: self.hostname = config_info['device_name']
+        if 'ip_domain_lookup' in config_info: self.ip_domain_lookup = config_info['ip_domain_lookup']
+        if 'username' in config_info:
+            self.users.append({'username': config_info['username'], 'privilege': config_info['privilege']})
+        if 'username_delete' in config_info:
+            for user in self.users:
+                if user['username'] == config_info['username_delete']:
+                    self.users.remove(user)
+                    break
+        if 'banner_motd' in config_info: self.banner = config_info['banner_motd']
+
+        self.security.update(config_info)
+
+
     def get_device_info(self) -> dict:
         device_info = dict()
         device_info["device_name"] = self.hostname
-        device_info["mgmt_iface"] = self.mgmt_ip
-        device_info["mgmt_ip"] = self.mgmt_iface
+        device_info["mgmt_iface"] = self.mgmt_iface
+        device_info["mgmt_ip"] = self.mgmt_ip
+
+        device_info["security"] = self.security.get_info()
+        device_info["users"] = self.users
+        device_info["banner"] = self.banner
+        device_info["ip_domain_lookup"] = self.ip_domain_lookup
+
+        return device_info
+
+
+    def verify_config_applied(self, configuration: dict) -> dict:
+        """
+        Verifies whether the intended configuration has been applied to the device.
+
+        Args:
+            configuration (dict): The same dict passed to `config()`.
+
+        Returns:
+            dict: A dictionary with verification results.
+        """
+        nr = InitNornir(config_file="config/config.yaml")
+        target = nr.filter(name=self.hostname)
+
+        # Fetch running config
+        result = target.run(task=napalm_get, getters=["config"])
+        task_result = result[self.hostname]
+
+        if task_result.failed:
+            raise RuntimeError(f"Failed to fetch running config: {task_result.exception}")
+
+        running_config = task_result.result["config"]["running"]
+        parse = CiscoConfParse(running_config.splitlines())
+
+        results = {}
+
+        # BASIC CONFIG
+        if "device_name" in configuration:
+            hostname_line = parse.find_lines(r"^hostname ")[0] if parse.find_lines(r"^hostname ") else ""
+            results["hostname"] = hostname_line == f"hostname {configuration['device_name']}"
+
+        if "ip_domain_lookup" in configuration:
+            has_no_lookup = bool(parse.find_lines(r"^no ip domain-lookup"))
+            results["ip_domain_lookup"] = not has_no_lookup if configuration["ip_domain_lookup"] else has_no_lookup
+
+        if "banner_motd" in configuration:
+            banner_line = parse.find_lines(r"^banner motd")[0] if parse.find_lines(r"^banner motd") else ""
+            expected_banner = configuration["banner_motd"].replace("^", "")
+            results["banner_motd"] = expected_banner in banner_line
+
+        if "username" in configuration:
+            lines = parse.find_lines(rf"^username {configuration['username']} ")
+            results[f"username_{configuration['username']}"] = len(lines) > 0
+
+        if "username_delete" in configuration:
+            lines = parse.find_lines(rf"^username {configuration['username_delete']} ")
+            results[f"removed_user_{configuration['username_delete']}"] = len(lines) == 0
+
+        # SECURITY CONFIG
+        if "enable_passwd" in configuration:
+            enable_line = parse.find_lines(r"^enable secret")[0] if parse.find_lines(r"^enable secret") else ""
+            results["enable_secret"] = bool(enable_line)
+
+        if configuration.get("password_encryption"):
+            results["password_encryption"] = bool(parse.find_lines(r"^service password-encryption"))
+
+        if "console_access" in configuration:
+            if configuration["console_access"] == "local_database":
+                results["console_access"] = bool(
+                    parse.find_objects_w_child(r'^line\s+con', r'^\s*login\s+local\b')
+                )
+
+            elif configuration["console_access"] == "password":
+                parents = parse.find_objects_w_child(r'^line\s+con', r'^\s*password(?:\s+\d+)?\s+\S+')
+                results["console_access"] = any(
+                    p.has_child_with(r'^\s*login\b') and not p.has_child_with(r'^\s*login\s+local\b')
+                    for p in parents
+                )
+
+        if "vty_protocols" in configuration:
+            vty_blocks = parse.find_objects(r'^line\s+vty\b')
+            if len(configuration["vty_protocols"]) == 1:
+                results["vty_protocols"] = any(
+                    p.has_child_with(r'^\s*transport\s+input\s+ssh\b')
+                    for p in vty_blocks
+                )
+            elif len(configuration["vty_protocols"]) > 1:
+                results["vty_protocols"] = any(
+                    p.has_child_with(r'^\s*transport\s+input\s+(?:all|telnet\s+ssh|ssh\s+telnet)\b')
+                    for p in vty_blocks
+                )
+
+        return results
+
+    def config(self, configuration: dict) -> list:
+
+        nr = InitNornir(config_file="config/config.yaml")
+        target = nr.filter(name=self.hostname)
+
+        config_lines = []
+
+        # BASIC CONFIG
+        if "device_name" in configuration:
+            config_lines.append(f"hostname {configuration['device_name']}")
+
+        if "ip_domain_lookup" in configuration:
+            if configuration["ip_domain_lookup"]:
+                config_lines.append("ip domain-lookup")
+            else:
+                config_lines.append("no ip domain-lookup")
+
+        if "username" in configuration:
+            config_lines.append(
+                f"username {configuration['username']} privilege {configuration.get('privilege', 1)} "
+                f"secret {configuration['password']}")
+
+        if "username_delete" in configuration:
+                config_lines.append(f"no username {configuration['username_delete']}")
+
+        if "banner_motd" in configuration:
+            banner = configuration["banner_motd"].replace("^", "")
+            config_lines.append(f"banner motd ^{banner}^")
+
+        # SECURITY CONFIG
+        if configuration.get("password_encryption"):
+            config_lines.append("service password-encryption")
+
+        if configuration.get("console_access") == "local_database":
+            config_lines.extend([
+                "line console 0",
+                "login local"
+            ])
+        elif configuration.get("console_access") == "password":
+            config_lines.extend([
+                "line console 0",
+                f"password {configuration['console_password']}",
+                "login"
+            ])
+        if "vty_protocols" in configuration:
+            if len(configuration.get("vty_protocols")) > 1:
+                config_lines.extend([
+                    "line vty 0 15",
+                    "transport input telnet ssh"
+                ])
+            elif len(configuration.get("vty_protocols")) == 1:
+                config_lines.extend([
+                    "line vty 0 15",
+                    "transport input ssh"
+                ])
+
+
+        if "enable_passwd" in configuration:
+            config_lines.append(f"enable secret {configuration['enable_passwd']}")
+
+        return config_lines
+
+    def save_config(self) -> bool:
+        nr = InitNornir(config_file="config/config.yaml")
+        target = nr.filter(name=self.hostname)
+
+        res = target.run(task=netmiko_save_config)
+        host = list(target.inventory.hosts.keys())[0]
+        if res[host].failed:
+            return False
+        else:
+            return True

@@ -1,5 +1,12 @@
 R1-c7200:
-  groups:
-  - routers
+  groups: []
+  hostname: 10.0.110.2
+  platform: ios
+R2-c7200:
+  groups: []
   hostname: 192.168.174.200
+  platform: ios
+R3-c7200:
+  groups: []
+  hostname: 10.0.120.2
   platform: ios
