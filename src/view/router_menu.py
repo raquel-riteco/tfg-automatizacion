@@ -55,7 +55,10 @@ class RouterMenu(DeviceMenu):
         for iface in device["iface_list"]:
             state = "Up" if iface['is_up'] else "Down"
             ip_addr = iface.get('ip_addr') if iface.get('ip_addr') is not None else "None"
-            print(f"{iface['name']:<25} {ip_addr:<20} {state:<6}")
+            if iface['name'] == device['mgmt_iface']:
+                print(f"{iface['name']:<25} {ip_addr:<20} {state:<6} MGMT_IFACE")
+            else:
+                print(f"{iface['name']:<25} {ip_addr:<20} {state:<6}")
 
 
     def __show_router_config_menu__(self) -> int:
@@ -93,6 +96,10 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             if string:
                 for iface in device["iface_list"]:
+                    if device['mgmt_iface'] == normalize_iface(string):
+                        print(parse_warning("This is the management iface, you cannot change its configuration."))
+                        found = 1
+                        break
                     if iface["name"] == normalize_iface(string):
                         found = 1
                         break
@@ -102,7 +109,6 @@ class RouterMenu(DeviceMenu):
                     info["iface"] = normalize_iface(string)
                     break
 
-        info["option"] = self.__show_menu__(R_L3_IFACE_CONFIG)
         return info
 
     def __router_iface_ip_address__(self, info: dict, devices: list) -> int | dict:
@@ -920,7 +926,7 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 try:
-                    ip = ip.ip_address(string)
+                    ip_addr = ip.ip_address(string)
                     info['router_id'] = string
                     return info
                 except ValueError:
@@ -947,7 +953,7 @@ class RouterMenu(DeviceMenu):
             print("These aren't any OSPF processes configured.")
 
         while True:
-            string = input("Set device OSPF to redistribute (y/n): ")
+            string = input("Set device OSPF to redistribute (Y | N): ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
@@ -1017,6 +1023,7 @@ class RouterMenu(DeviceMenu):
             case 2:
                 # L3 iface config
                 info = self.__show_router_l3_iface_config__(device)
+                info["option"] = self.__show_menu__(R_L3_IFACE_CONFIG)
                 if info == EXIT:
                     config_option = None
                 else:

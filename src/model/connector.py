@@ -216,7 +216,7 @@ class Connector:
                     hsrp_prio = intf.re_match_iter_typed(rf'standby\s+{hsrp_group}\s+priority\s+(\d+)',
                                                          default=None)
                     if hsrp_prio is not None:
-                        hsrp_prio = int("hsrp_prio")
+                        hsrp_prio = int(hsrp_prio)
                     hsrp_pre = bool(
                         intf.re_search_children(rf'standby\s+{hsrp_group}\s+preempt'))
 
@@ -301,9 +301,9 @@ class Connector:
                 networks = []
                 for child in ospf.children:
                     if 'network' in child.text:
-                        net = child.re_match_iter_typed(r'network (\S+ \S+) area (\d+)', default=None)
+                        net = child.text.split(' ')
                         if net:
-                            networks.append({"network": IPv4Network(net[0]), "area": int(net[1])})
+                            networks.append({"network": IPv4Network(f'{net[2]}/{net[3]}'), "network_area": int(net[5])})
 
                 router_id = next(
                     (c.re_match_iter_typed(r'^\s*router-id\s+(\S+)', default=None) for c in ospf.children

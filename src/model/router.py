@@ -89,7 +89,7 @@ class Router(Device):
                 config_lines.append("no shutdown")
 
             # HSRP REDUNDANCY
-            if ({"hsrp_virtual_ip", "hsrp_group", "hsrp_priority", "hsrp_preempt"}
+            if ({"hsrp_virtual_ip", "hsrp_group", "hsrp_priority", "preempt"}
                     <= configuration.keys()):
                 grp = configuration["hsrp_group"]
                 prio = configuration["hsrp_priority"]
@@ -253,38 +253,21 @@ class Router(Device):
                     # In the ciscos I am using, when the interface is not shutdown the word shutdown does not appear
                     results[f"iface {iface_name} no shutdown"] = not p.has_child_with(r'^\s*shutdown\s*$')
 
-        # HSRP REDUNDANCY
+                # HSRP REDUNDANCY
 
-        if ({"hsrp_virtual_ip", "iface_list", "hsrp_group", "hsrp_priority", "hsrp_preempt"}
-                <= configuration.keys()):
-            grp = int(configuration["hsrp_group"])
-            vip = str(configuration["hsrp_virtual_ip"])
-            prio = int(configuration["hsrp_priority"])
+                if ({"hsrp_virtual_ip", "hsrp_group", "hsrp_priority", "preempt"}
+                        <= configuration.keys()):
+                    grp = int(configuration["hsrp_group"])
+                    vip = str(configuration["hsrp_virtual_ip"])
+                    prio = int(configuration["hsrp_priority"])
+                    preempt = configuration.get("preempt")
 
-            preempt = configuration.get("hsrp_preempt")
-            if preempt is None:
-                preempt = configuration.get("preempt")
-
-            per_iface_ok = []
-            for iface in configuration["iface_list"]:
-                intf_objs = parse.find_objects(rf'^interface\s+{re.escape(str(iface))}\b')
-                ok = False
-                if intf_objs:
-                    p = intf_objs[0]
                     ip_ok = p.has_child_with(rf'^\s*standby\s+{grp}\s+ip\s+{re.escape(vip)}\s*$')
                     pr_ok = p.has_child_with(rf'^\s*standby\s+{grp}\s+priority\s+{prio}\s*$')
-                    if preempt is True:
-                        prpt_ok = p.has_child_with(rf'^\s*standby\s+{grp}\s+preempt\s*$')
-                    elif preempt is False:
-                        prpt_ok = p.has_child_with(rf'^\s*no\s+standby\s+{grp}\s+preempt\s*$')
-                    else:
-                        prpt_ok = True  # not specified; don't fail on it
-                    ok = ip_ok and pr_ok and prpt_ok
+                    ok = ip_ok and pr_ok
 
-                results[f"hsrp {iface}"] = ok
-                per_iface_ok.append(ok)
+                    results[f"hsrp {iface_name}"] = ok
 
-            results["hsrp all"] = all(per_iface_ok) if per_iface_ok else False
 
         # DHCP
 
@@ -373,21 +356,19 @@ class Router(Device):
                         rf'^\s*auto-cost\s+reference-bandwidth\s+{rbw}\s*$'
                     )
 
-                if {"network_ip", "network_wildcard", "network_area"} <= configuration.keys():
-                    nip = re.escape(str(configuration["network_ip"]))
-                    wc = re.escape(str(configuration["network_wildcard"]))
+                if {"network_ip", "network_area"} <= configuration.keys():
+                    network = IPv4Network(configuration['network_ip'])
+                    nip = network.network_address.exploded
+                    wc = network.hostmask.exploded
+
                     area = re.escape(str(configuration["network_area"]))
-                    results[f"ospf {pid} network"] = p_router.has_child_with(
+                    results[f"ospf {pid} network {nip}"] = p_router.has_child_with(
                         rf'^\s*network\s+{nip}\s+{wc}\s+area\s+{area}\s*$'
                     )
 
                 if configuration.get("is_redistribute") is True:
-                    what = str(configuration.get("redistribute_what", "connected"))
-                    if what in ("connected", "static", "rip", "eigrp", "bgp"):
-                        pat = rf'^\s*redistribute\s+{re.escape(what)}\s+subnets\s*$'
-                    else:
-                        pat = rf'^\s*redistribute\s+{re.escape(what)}\s*$'
-                    results[f"ospf {pid} redistribute {what}"] = p_router.has_child_with(pat)
+                    pat = rf'^\s*redistribute\s+static\s+subnets\s*$'
+                    results[f"ospf {pid} redistribute static subnets"] = p_router.has_child_with(pat)
 
 
             iface_items = configuration.get("iface_list")
