@@ -1,8 +1,12 @@
+from ipaddress import IPv4Address
+
 from model.connector import Connector
 from model.router import Router
 from view.router_menu import RouterMenu
-from view.view import Option as options
 from view.view import View
+from model.files import Files
+
+EXIT = -1
 
 class DeviceController:
     def __init__(self):
@@ -10,89 +14,107 @@ class DeviceController:
         self.connector = Connector()
         self.menu = None
         self.view = View()
+        self.files = Files()
 
-    def create_device(self, device_info: dict) -> None:
+    def __execute_device_config__(self, device_info: dict, device_config: dict) -> None:
+        if "device_name" in device_config:
+            self.files.modify_name_in_hosts(device_info["device_name"], device_config["device_name"])
+            device_name_config = dict()
+            device_name_config["device_name"] = device_config["device_name"]
+            self.device.update(device_name_config)
+        try:
+            config_lines = self.device.config(device_config)
+            access_data = self.files.get_user_and_pass()
+            output = self.connector.push_config_with_netmiko(self.device.mgmt_ip.exploded, access_data, config_lines)
+
+            verify = self.device.verify_config_applied(device_config)
+            print()
+            if len(verify) == 0:
+                self.view.print_warning("No configuration changes were made.")
+            else:
+                for key, status in verify.items():
+                    if status:
+                        self.view.print_ok(f"{key} configured correctly.")
+                    else:
+                        self.view.print_warning(f"{key} was not configured.")
+
+                self.device.update(device_config)
+
+            if device_config.get('save_config'):
+                ok = self.device.save_config()
+                if ok:
+                    self.view.print_ok("Configuration saved to startup config.")
+                else:
+                    self.view.print_warning("Configuration was not saved due to an error.")
+
+        except RuntimeError as e:
+            self.view.print_error("Could not config device: " + str(e))
+
+    def create_device(self, device_info: dict, device_config: dict = None) -> bool:
         """
         Creates a device instance based on the provided device information.
 
         Connects to the device to retrieve additional information and initializes a `Router` object
-        if the device type is identified as "router".
+        if the device type is identified as "R".
 
         Args:
             device_info (dict): A dictionary containing the device's attributes, including:
-                - "device_type" (str): Type of the device, e.g., "router".
-                - "name" (str): Device name.
+                - "device_type" (str): Type of the device, e.g., "R".
+                - "device_name" (str): Device name.
                 - "mgmt_ip" (str): Management IP address.
                 - "mgmt_iface" (str): Management interface.
-
+            device_config (dict, optional)
         Returns:
             None
         """
+
+        self.files.add_device_to_hosts_if_not_exists(device_info)
         try:
             connector_info = self.connector.get_device_info(device_info)
+
+            if connector_info['device_name'] != device_info["device_name"]:
+                change_device_name = self.view.ask_change_device_name(connector_info['device_name'],
+                                                                      device_info["device_name"])
+                if change_device_name:
+                    self.files.modify_name_in_hosts(device_info["device_name"], connector_info['device_name'])
+                    device_info["device_name"] = connector_info['device_name']
+
+            if device_info["device_type"] == "R":
+                self.menu = RouterMenu()
+                self.device = Router(device_info["device_name"], IPv4Address(device_info["mgmt_ip"]),
+                                     device_info["mgmt_iface"], connector_info["security"], connector_info["interfaces"],
+                                     connector_info["users"], connector_info["banner_motd"],
+                                     connector_info["ip_domain_lookup"], connector_info["dhcp"],
+                                     connector_info["routing_process"])
+                if device_config and len(device_config) > 0:
+                    self.__execute_device_config__(device_info, device_config)
+            return True
+
         except RuntimeError as e:
-            self.view.print_error(str(e))
-
-        if device_info["device_type"] == "router":
-            self.device = Router(device_info["name"], device_info["mgmt_ip"], device_info["mgmt_iface"], 
-                                 connector_info["security"], connector_info["interfaces"], connector_info["users"], 
-                                 connector_info["banner"], connector_info["dhcp"], connector_info["routing_process"])
-            self.menu = RouterMenu()
+            self.view.print_error("Device could not be created because of " + str(e))
+            return False
 
 
-    def configure_device(self, devices: list) -> None:
-        if type(self.device) == type(Router):
-            returned = self.menu.show_router_menu()
-            if returned != options.exit:
-                str_option, info = returned
-                match str_option:
-                    case "device_name":
-                        pass
-                    case "ip_domain":
-                        pass
-                    case "add_user":
-                        pass
-                    case "remove_user":
-                        pass
-                    case "banner_motd":
-                        pass
-                    case "iface_ip_address":
-                        pass
-                    case "subiface_config":
-                        pass
-                    case "iface_description":
-                        pass
-                    case "redundancy_config":
-                        pass
-                    case "static_routing":
-                        pass    
-                    case "ospf_iface_hello":
-                        pass
-                    case "ospf_iface_dead":
-                        pass
-                    case "ospf_iface_passive":
-                        pass
-                    case "ospf_iface_priority":
-                        pass   
-                    case "ospf_iface_cost":
-                        pass
-                    case "ospf_iface_point_to_point":
-                        pass
-                    case "ospf_process_reference":
-                        pass
-                    case "ospf_process_network":
-                        pass
-                    case "ospf_process_id":
-                        pass
-                    case "ospf_process_redistr":
-                        pass
-                    case "dhcp_helper_addr":
-                        pass
-                    case "dhcp_exclude_addr":
-                        pass
-                    case "dhcp_pool":
-                        pass
+    def configure_device(self, devices_info: list) -> None:
+        if type(self.device) == Router:
+            option = None
+            while True:
+                returned = self.menu.show_router_menu(self.device.get_device_info(), devices_info, option)
+                if returned != EXIT:
+                    info, option = returned
+                    if info != -1:
+                        if 'iface' in info and len(info) <= 2 and 'helper_address' not in info:
+                            info = dict()
+                        if len(info) > 0:
+                            self.__execute_device_config__(self.device.get_device_info(), info)
+                        else:
+                            option = None
+                else:
+                    break
 
-                    
+
     def get_device_info(self) -> dict:
         return self.device.get_device_info()
+
+    def get_device_config(self) -> dict:
+        return self.device.get_config()

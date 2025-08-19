@@ -45,7 +45,10 @@ class Files:
             dict: The contents of the JSON file.
         """
         with open(filename, 'r') as file:
-            return json.load(file)
+            try:
+                return json.load(file)
+            except Exception:
+                return dict()
         
         
     def __write_json__(self, filename: str, info: dict) -> None:
@@ -120,4 +123,64 @@ class Files:
         self.__write_yaml__("inventory/hosts.yaml", treated_host_info)
         # Return other info
         return info
-        
+
+    def get_user_and_pass(self) -> dict:
+        return self.__read_yaml__("inventory/defaults.yaml")
+
+    def modify_name_in_hosts(self, prev_name: str, new_name: str) -> None:
+        data = self.__read_yaml__("inventory/hosts.yaml")
+        data[new_name] = data.pop(prev_name)
+        self.__write_yaml__("inventory/hosts.yaml", data)
+
+    def add_device_to_hosts_if_not_exists(self, device_info: dict) -> None:
+        devices = self.__read_yaml__("inventory/hosts.yaml")
+        if devices is None:
+            devices = dict()
+
+        found = False
+        for device in devices:
+            if device == device_info['device_name']:
+                found = True
+                break
+        if not found:
+            devices[device_info['device_name']] = dict()
+            devices[device_info['device_name']]['hostname'] = device_info['mgmt_ip'].exploded
+            devices[device_info['device_name']]['platform'] = device_info['platform']
+
+            if "group" in device_info:
+                devices[device_info['device_name']]['groups'] = list()
+                devices[device_info['device_name']]['groups'].append(device_info['group'])
+                new_group = device_info['group']
+                groups = self.__read_yaml__("inventory/groups.yaml")
+                if new_group not in groups:
+                    current_group = dict()
+                    current_group["group"] = new_group
+                    groups[new_group] = current_group
+
+                self.__write_yaml__("inventory/groups.yaml", groups)
+
+            self.__write_yaml__("inventory/hosts.yaml", devices)
+
+
+    def save_config(self, device_name: str, device_info: dict, device_config: dict, filename: str) -> None:
+        try:
+            data = self.__read_json__(f"db/{filename}")
+        except FileNotFoundError:
+            data = dict()
+
+        if device_name not in data:
+            data[device_name] = dict()
+            hosts_info = self.__read_yaml__("inventory/hosts.yaml")
+            data[device_name]['inventory'] = hosts_info[device_name]
+            if "groups" not in data[device_name]['inventory']:
+                data[device_name]['inventory']['groups'] = list()
+
+            data[device_name]['connect'] = dict()
+            data[device_name]['connect']['device_type'] = device_info['device_type']
+            data[device_name]['connect']['device_name'] = device_info['device_name']
+            data[device_name]['connect']['mgmt_ip'] = device_info['mgmt_ip']
+            data[device_name]['connect']['mgmt_iface'] = device_info['mgmt_iface']
+
+        data[device_name]['config'] = device_config
+
+        self.__write_json__(f"db/{filename}", data)

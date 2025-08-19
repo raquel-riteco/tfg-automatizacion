@@ -1,5 +1,4 @@
-R1-c7200:
-  groups:
-  - routers
-  hostname: 192.168.174.200
+R4-c7200:
+  groups: []
+  hostname: 192.168.174.201
   platform: ios

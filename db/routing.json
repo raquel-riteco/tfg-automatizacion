@@ -1,0 +1,50 @@
+{
+  "R1-c7200": {
+    "inventory": {
+      "hostname": "10.0.110.2",
+      "platform": "ios",
+      "groups": []
+    },
+    "connect": {
+      "device_type": "R",
+      "device_name": "R1-c7200",
+      "mgmt_ip": "10.0.110.2",
+      "mgmt_iface": "g1/0"
+    },
+    "config": {
+
+    }
+  },
+  "R2-c7200": {
+    "inventory": {
+      "hostname": "192.168.174.200",
+      "platform": "ios",
+      "groups": []
+    },
+    "connect": {
+      "device_type": "R",
+      "device_name": "R2-c7200",
+      "mgmt_ip": "192.168.174.200",
+      "mgmt_iface": "g0/0"
+    },
+    "config": {
+
+    }
+  },
+  "R3-c7200": {
+    "inventory": {
+      "hostname": "10.0.120.2",
+      "platform": "ios",
+      "groups": []
+    },
+    "connect": {
+      "device_type": "R",
+      "device_name": "R3-c7200",
+      "mgmt_ip": "10.0.120.2",
+      "mgmt_iface": "g1/0"
+    },
+    "config": {
+
+    }
+  }
+}

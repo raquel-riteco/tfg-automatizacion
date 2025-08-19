@@ -1,9 +1,10 @@
+
 from view.view_parser import parse_error, parse_warning
 
 DEV_BASIC_CONFIG = ["DEVICE BASIC CONFIG MENU", "Device name", "IP domain lookup", "Add user", "Remove user",
-                    "Banner MOTD", "Exit"]
+                    "Banner MOTD", "Security", "Save running config", "Exit"]
 DEV_SECURITY_CONFIG = ["DEVICE SECURITY CONFIG MENU", "Encrypt passwords", "Console access", "VTY access",
-                       "Enable passw", "Exit"]
+                       "Enable password", "Exit"]
 
 EXIT = -1
 
@@ -29,7 +30,7 @@ class DeviceMenu:
         option = 0
 
         while True:
-            print(f"{menu[0]}\n")
+            print(f"\n{menu[0]}\n")
             for i in range(1, len(menu)):
                 print(f"\t{i}. {menu[i]}")
             option = input(f"\nEnter option: ")
@@ -57,26 +58,9 @@ class DeviceMenu:
         """
 
         print(f"Current users in device: {device['device_name']}")
-        for user in device["usernames"]:
-            print(user)
-
-    def __show_l3_ifaces__(self, device: dict) -> None:
-        """
-        Displays the Layer 3 interfaces of a given device.
-
-        Args:
-            device (dict): Dictionary containing device information, including:
-                - device_name (str): The name of the device.
-                - iface_list (list): List of interfaces, each with:
-                    - name (str): The name of the interface.
-                    - address (str): The IP address of the interface.
-                    - state (str): The state of the interface.
-        """
-
-        print(f"Device {device['device_name']} interfaces: ")
-        print(f"IFACE NAME\tIFACE ADDRESS\tIFACE STATE")
-        for iface in device["iface_list"]:
-            print(f"{iface['name']}\t{iface['address']}\t{iface['state']}\t")
+        print(f"{'USERNAME':<20} {'PRIVILEGE':<10}")
+        for user in device["users"]:
+            print(f"{user['username']:<20} {user['privilege']:<10}")
 
     #### PUBLIC FUNCTIONS ####
 
@@ -90,6 +74,15 @@ class DeviceMenu:
             int: The result of displaying the menu.
         """
         return self.__show_menu__(DEV_BASIC_CONFIG)
+
+    def show_device_security_config(self) -> int:
+        """
+        Display the security configuration menu for the device.
+
+        Returns:
+            int: The result of displaying the menu.
+        """
+        return self.__show_menu__(DEV_SECURITY_CONFIG)
 
     def device_dev_name(self, device: dict, devices: list) -> int | dict:
         """
@@ -116,7 +109,7 @@ class DeviceMenu:
                 return EXIT
             elif string:
                 for d in devices:
-                    if string.lower() == d["device_name"].lower():
+                    if string.lower() == d["device_name"].lower() and device['mgmt_ip'] != d["mgmt_ip"]:
                         print(parse_error("A device with this name already exists."))
                         found = 1
                         break
@@ -141,14 +134,13 @@ class DeviceMenu:
 
         info = dict()
 
-        print(f"Current device ip domain domain lookup  state: {device['ip_domain_lookup']}")
+        print(f"Current device ip domain domain lookup state: {device['ip_domain_lookup']}")
         while True:
             if device["ip_domain_lookup"]:
                 string = input("Deactivate (Y | N)? ")
                 match string.lower():
                     case "n":
-                        info["ip_domain_lookup"] = True
-                        return info
+                        return EXIT
                     case "exit":
                         print(parse_warning("Exit detected, operation not completed."))
                         return EXIT
@@ -161,8 +153,7 @@ class DeviceMenu:
                 string = input("Activate (Y | N)? ")
                 match string.lower():
                     case "n":
-                        info["ip_domain_lookup"] = False
-                        return info
+                        return EXIT
                     case "exit":
                         print(parse_warning("Exit detected, operation not completed."))
                         return EXIT
@@ -197,8 +188,8 @@ class DeviceMenu:
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
             elif string:
-                for user in device["usernames"]:
-                    if string.lower() == user.lower():
+                for user in device["users"]:
+                    if string.lower() == user['username'].lower():
                         print(parse_error("A user with this name already exists."))
                         found = 1
                         break
@@ -247,10 +238,9 @@ class DeviceMenu:
                 return EXIT
             elif string:
                 i = 0
-                for user in device["usernames"]:
-                    if string.lower() == user.lower():
-                        found = 1
-                        info["remove_pos"] = i
+                for user in device["users"]:
+                    if string.lower() == user['username'].lower():
+                        info["username_delete"] = user['username']
                         return info
                     i += 1
 
@@ -272,7 +262,10 @@ class DeviceMenu:
         """
 
         info = dict()
-        print(f"Current banner MOTD: {device['banner']}")
+        if device['banner']:
+            print(f"Current banner MOTD: {device['banner']}")
+        else:
+            print(f"There is currently no banner MOTD")
         while True:
             string = input("Enter new banner MOTD: ")
             if string.lower() == "exit":
@@ -282,15 +275,25 @@ class DeviceMenu:
                 info["banner_motd"] = string
                 return info
 
-    def show_device_security_config(self) -> int:
+    def save_running_config(self) -> int | dict:
         """
-        Display the security configuration menu for the device.
+        Save the running-config into the startup-config.
 
         Returns:
-            int: The result of displaying the menu.
+            int: EXIT if the operation is exited.
+            dict: Information into if it wants to save the config.
+                - "save_config": bool
         """
 
-        return self.__show_menu__(DEV_SECURITY_CONFIG)
+        info = dict()
+        while True:
+            string = input("Do you want to save your running config into the startup config (Y | N)? ")
+            if string.lower() == 'y':
+                info['save_config'] = True
+                return info
+            elif string.lower() == 'n' or string.lower() == 'exit':
+                return EXIT
+
 
     def device_encrypt_passwd(self, device: dict) -> int | dict:
         """
@@ -307,17 +310,16 @@ class DeviceMenu:
         """
 
         info = dict()
-        if device["password_encryption"]:
+        if device["security"]["is_encrypted"]:
             while True:
                 print("Password encryption is ENABLED")
-                string = input("Want to disable it (Y | N)?")
+                string = input("Want to disable it (Y | N)? ")
                 match string.lower():
                     case 'y':
                         info["password_encryption"] = False
                         return info
                     case 'n':
-                        info["password_encryption"] = True
-                        return info
+                        return EXIT
                     case 'exit':
                         print(parse_warning("Exit detected, operation not completed."))
                         return EXIT
@@ -326,14 +328,13 @@ class DeviceMenu:
         else:
             while True:
                 print("Password encryption is DISABLED")
-                string = input("Want to enable it (Y | N)?")
+                string = input("Want to enable it (Y | N)? ")
                 match string.lower():
                     case 'y':
                         info["password_encryption"] = True
                         return info
                     case 'n':
-                        info["password_encryption"] = False
-                        return info
+                        return EXIT
                     case 'exit':
                         print(parse_warning("Exit detected, operation not completed."))
                         return EXIT
@@ -356,7 +357,7 @@ class DeviceMenu:
         """
 
         info = dict()
-        match device["console_access"]:
+        match device["security"]["console_access"]:
             case "local_database":
                 print("Currently, console is accessed by entering username and password stored in local database.")
                 while True:
@@ -367,8 +368,7 @@ class DeviceMenu:
                             info["console_password"] = input("Enter console password: ")
                             return info
                         case 'n':
-                            info["console_access"] = "local_database"
-                            return info
+                            return EXIT
                         case 'exit':
                             print(parse_warning("Exit detected, operation not completed."))
                             return EXIT
@@ -384,8 +384,7 @@ class DeviceMenu:
                             info["console_access"] = "local_database"
                             return info
                         case 'n':
-                            info["console_access"] = "password"
-                            return info
+                            return EXIT
                         case 'exit':
                             print(parse_warning("Exit detected, operation not completed."))
                             return EXIT
@@ -412,118 +411,58 @@ class DeviceMenu:
 
     def device_vty_access(self, device: dict) -> int | dict:
         """
-        Change the VTY access and protocol configuration of the device.
+        Change the VTY protocol configuration of the device.
 
         Args:
             device (dict): The current device information.
-                - "vty_access": str,       # Current VTY access method ("local_database", "password")
-                - "vty_protocols": str     # Current VTY protocols ("ssh", "telnet", "both")
+                - "vty_protocols": str     # Current VTY protocols ("ssh", "both")
 
         Returns:
             int: EXIT if the operation is exited.
             dict: Updated VTY access and/or protocol configuration.
-                - "vty_access": str,       # New VTY access method ("local_database", "password")
-                - "vty_protocols": str     # New VTY protocols ("ssh", "telnet", "both")
+                - "vty_protocols": str     # New VTY protocols ("ssh", "both")
         """
 
         info = dict()
-        string = ""
-        while True:
-            match device["vty_access"]:
-                case "local_database":
-                    print(
-                        "Currently, VTY lines are accessed by entering username and password stored in local database.")
-                case "password":
-                    print("Currently, VTY lines are accessed by entering only a password.")
-                case _:
-                    print("Currently, VTY lines access is not configured.")
+        print("Currently, VTY lines are accessed by entering username and password stored in local database. THIS "
+              "CANNOT BE CHANGED BECAUSE CONNECTION TO THE DEVICE WILL BE LOST.")
 
-            match device["vty_protocols"]:
-                case "ssh":
-                    print("Only SSH protocol configured")
-                case "telnet":
-                    print("Only Telnet protocol configured")
-                case "both":
-                    print("Both SSH and Telnet protocols configured")
-                case _:
-                    print("No protocols configured")
+        # SSH must be configured to connect to device.
+        if len(device["security"]["vty_protocols"]) == 1:
+            print("Only SSH protocol configured")
+            while True:
+                string = input("Want to enable Telnet (Y | N)? ")
+                match string.lower():
+                    case 'y':
+                        info["vty_protocols"] = list()
+                        info["vty_protocols"].append("ssh")
+                        info["vty_protocols"].append("telnet")
+                        return info
+                    case 'n':
+                        return EXIT
+                    case 'exit':
+                        print(parse_warning("Exit detected, operation not completed."))
+                        return EXIT
+                    case _:
+                        print(parse_error("Invalid option."))
+        elif len(device["security"]["vty_protocols"]) > 1:
+            print("Both SSH and Telnet protocols configured")
+            while True:
+                string = input("Want to disable Telnet (Y | N)? ")
+                match string.lower():
+                    case 'y':
+                        info["vty_protocols"] = list()
+                        info["vty_protocols"].append("ssh")
+                        return info
+                    case 'n':
+                        return EXIT
+                    case 'exit':
+                        print(parse_warning("Exit detected, operation not completed."))
+                        return EXIT
+                    case _:
+                        print(parse_error("Invalid option."))
 
-            string = input("Config access (1) or protocols (2)? ")
-            match string.lower():
-                case '1':
-                    match device["vty_access"]:
-                        case "local_database":
-                            while True:
-                                string = input("Want to change access to only password (Y | N)? ")
-                                match string.lower():
-                                    case 'y':
-                                        info["vty_access"] = "password"
-                                        return info
-                                    case 'n':
-                                        info["vty_access"] = "local_database"
-                                        return info
-                                    case 'exit':
-                                        print(parse_warning("Exit detected, operation not completed."))
-                                        return EXIT
-                                    case _:
-                                        print(parse_error("Invalid option."))
 
-                        case "password":
-                            while True:
-                                string = input(
-                                    "Want to change access to username and password stored in local database (Y | N)? ")
-                                match string.lower():
-                                    case 'y':
-                                        info["vty_access"] = "local_database"
-                                        return info
-                                    case 'n':
-                                        info["vty_access"] = "password"
-                                        return info
-                                    case 'exit':
-                                        print(parse_warning("Exit detected, operation not completed."))
-                                        return EXIT
-
-                        case _:
-                            while True:
-                                string = input(
-                                    "Want to access by only password (1) or by username and password stored in local database (2)? ")
-                                match string.lower():
-                                    case '1':
-                                        info["vty_access"] = "local_database"
-                                        return info
-                                    case '2':
-                                        info["vty_access"] = "password"
-                                        return info
-                                    case 'exit':
-                                        print(parse_warning("Exit detected, operation not completed."))
-                                        return EXIT
-                                    case _:
-                                        print(parse_error("Invalid option."))
-
-                case '2':
-                    while True:
-                        input = ("Enable SSH, Telnet or both (ssh | telnet | both)? ")
-                        match string.lower():
-                            case 'ssh':
-                                info["vty_protocols"] = "ssh"
-                                return info
-                            case 'telnet':
-                                info["vty_protocols"] = "telnet"
-                                return info
-                            case 'both':
-                                info["vty_protocols"] = "both"
-                                return info
-                            case 'exit':
-                                print(parse_warning("Exit detected, operation not completed."))
-                                return EXIT
-                            case _:
-                                print(parse_error("Invalid option."))
-
-                case 'exit':
-                    print(parse_warning("Exit detected, operation not completed."))
-                    return EXIT
-                case _:
-                    print(parse_error("Invalid option, enter a 1 or a 2."))
 
     def device_enable_passwd(self, device: dict) -> int | dict:
         """
@@ -540,7 +479,7 @@ class DeviceMenu:
         """
 
         info = dict()
-        if device["enable_passwd"]:
+        if device["security"]["enable_by_password"]:
             print("Currently, console is accessed by entering a password.")
             while True:
                 string = input("Want to update password (Y | N)? ")
@@ -549,8 +488,7 @@ class DeviceMenu:
                         info["enable_passwd"] = input("Enter enable password: ")
                         return info
                     case 'n':
-                        info["enable_passwd"] = device["enable_passwd"]
-                        return info
+                        return EXIT
                     case 'exit':
                         print(parse_warning("Exit detected, operation not completed."))
                         return EXIT
@@ -560,37 +498,76 @@ class DeviceMenu:
         else:
             print("Currently, enable password is not configured.")
             while True:
-                string = input("Want to set a new enable password? ")
+                string = input("Want to set a new enable password (Y | N)? ")
                 match string.lower():
                     case 'y':
                         info["enable_passwd"] = input("Enter enable password: ")
                         return info
                     case 'n':
-                        info["enable_passwd"] = device["enable_passwd"]
-                        return info
+                        return EXIT
                     case 'exit':
                         print(parse_warning("Exit detected, operation not completed."))
                         return EXIT
                     case _:
                         print(parse_error("Invalid option."))
 
-    def device_iface_description(self) -> int | dict:
+    def device_iface_description(self, description: str, info: dict) -> int | dict:
         """
         Change the interface description.
 
         Returns:
             int: EXIT if the operation is exited.
             dict: Updated interface description.
-                - "iface_desc": str  # New interface description
+                - "description": str  # New interface description
         """
 
-        info = dict()
+        if description == "":
+            print("There is currently no description configured.")
+        else:
+            print("Current description: ")
         while True:
             string = input("Enter iface description: ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
             if string:
-                info["iface_desc"] = string
+                info["description"] = string
                 return info
 
+
+    def device_iface_shutdown(self, is_up: bool, info: dict) -> int | dict:
+        """
+        Shutdown or activate an interface.
+
+        Returns:
+            int: EXIT if the operation is exited.
+            dict: Updated interface description.
+                - "is_up": bool
+        """
+        while True:
+            if is_up:
+                string = input("Interface is Up, want to shutdown (Y | N)? ")
+                match string.lower():
+                    case 'y':
+                        info["is_up"] = False
+                        return info
+                    case 'n':
+                        return EXIT
+                    case 'exit':
+                        print(parse_warning("Exit detected, operation not completed."))
+                        return EXIT
+                    case _:
+                        print(parse_error("Invalid option."))
+            else:
+                string = input("Interface is Down, want to no shutdown / set it up (Y | N)? ")
+                match string.lower():
+                    case 'y':
+                        info["is_up"] = True
+                        return info
+                    case 'n':
+                        return EXIT
+                    case 'exit':
+                        print(parse_warning("Exit detected, operation not completed."))
+                        return EXIT
+                    case _:
+                        print(parse_error("Invalid option."))
