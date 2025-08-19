@@ -44,7 +44,7 @@ class RouterMenu(DeviceMenu):
         Args:
             device (dict): Dictionary containing device information, including:
                 - device_name (str): The name of the device.
-                - iface_list (list): List of interfaces, each with:
+                - interfaces (list): List of interfaces, each with:
                     - name (str): The name of the interface.
                     - address (str): The IP address of the interface.
                     - state (str): The state of the interface.
@@ -52,9 +52,9 @@ class RouterMenu(DeviceMenu):
 
         print(f"\nDevice {device['device_name']} interfaces: ")
         print(f"{'IFACE NAME':<25} {'IFACE ADDRESS':<20} {'IFACE STATE':<6}")
-        for iface in device["iface_list"]:
+        for iface in device["interfaces"]:
             state = "Up" if iface['is_up'] else "Down"
-            ip_addr = iface.get('ip_addr') if iface.get('ip_addr') is not None else "None"
+            ip_addr = iface.get('ip_address') if iface.get('ip_address') is not None else "None"
             if iface['name'] == device['mgmt_iface']:
                 print(f"{iface['name']:<25} {ip_addr:<20} {state:<6} MGMT_IFACE")
             else:
@@ -76,7 +76,8 @@ class RouterMenu(DeviceMenu):
 
         Args:
             device (dict): The current device information.
-                - "iface_list": list[dict]  # List of interface details, each interface is a dictionary with a "name" key.
+                - "interfaces": list[dict]  # List of interface details, each interface is a dictionary with a
+                    "name" key.
 
         Returns:
             int: EXIT if the operation is exited.
@@ -95,17 +96,17 @@ class RouterMenu(DeviceMenu):
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
             if string:
-                for iface in device["iface_list"]:
+                for iface in device["interfaces"]:
                     if device['mgmt_iface'] == normalize_iface(string):
                         print(parse_warning("This is the management iface, you cannot change its configuration."))
-                        found = 1
+                        found = -1
                         break
                     if iface["name"] == normalize_iface(string):
                         found = 1
                         break
-                if not found:
+                if found == 0:
                     print(parse_error("This interface does not exist."))
-                else:
+                elif found == 1:
                     info["iface"] = normalize_iface(string)
                     break
 
@@ -117,7 +118,8 @@ class RouterMenu(DeviceMenu):
 
         Args:
             devices (list): List of devices in the network.
-                - "iface_list": list[dict]  # List of interface details, each interface is a dictionary with "iface_list" as IP address key.
+                - "interfaces": list[dict]  # List of interface details, each interface is a dictionary with
+                    "interfaces" as IP address key.
 
         Returns:
             int: EXIT if the operation is exited.
@@ -135,13 +137,13 @@ class RouterMenu(DeviceMenu):
                     ip.ip_address(string)
                     found = 0
                     for dev in devices:
-                        for iface in dev["iface_list"]:
-                            if iface["ip_addr"] == string:
+                        for iface in dev["interfaces"]:
+                            if iface["ip_address"] == string:
                                 print(parse_error("There is another iface in the network with this IP."))
                                 found = 1
 
                     if found == 0:
-                        info["ip_addr"] = string
+                        info["ip_address"] = string
                         break
                 except ValueError:
                     print(parse_error("The IP address is not valid."))
@@ -153,7 +155,7 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             if string:
                 try:
-                    ip.ip_network(f"{info['ip_addr']}/{string}", strict=False)
+                    ip.ip_network(f"{info['ip_address']}/{string}", strict=False)
                     info['mask'] = string
                     return info
                 except ValueError:
@@ -172,6 +174,10 @@ class RouterMenu(DeviceMenu):
             dict: Updated subinterface configuration.
                 - "subiface_num": str  # Configured subinterface number.
         """
+        iface_name_split = info['iface'].split('.')
+        if len(iface_name_split) > 1:
+            print(parse_error("This is already a subinterface."))
+            return EXIT
 
         while True:
             string = input("Enter subinterface num: ")
@@ -201,7 +207,7 @@ class RouterMenu(DeviceMenu):
         Returns:
             int: EXIT if the user exits during input.
             dict: A dictionary containing redundancy configuration information with keys:
-                - iface_list (list): List of interface names.
+                - interfaces (list): List of interface names.
                 - hsrp_virtual_ip (string): The HSRP virtual IP.
                 - hsrp_group (int): The HSRP group number.
                 - hsrp_priority (int): The HSRP priority.
@@ -291,7 +297,8 @@ class RouterMenu(DeviceMenu):
 
         Args:
             device (dict): The current device information.
-                - "iface_list": list[L3_iface]  # List of DHCP pool details, each pool is a dictionary with "pool_name" as key.
+                - "interfaces": list[L3_iface]  # List of DHCP pool details, each pool is a dictionary with
+                    "pool_name" as key.
 
 
         Returns:
@@ -310,13 +317,15 @@ class RouterMenu(DeviceMenu):
                 return EXIT
             elif string:
                 found = False
-                for iface in device['iface_list']:
-                    if iface == normalize_iface(string):
+                for iface in device['interfaces']:
+                    if iface['name'] == normalize_iface(string):
                         found = True
-                        info['iface'] = string
+                        info['iface'] = normalize_iface(string)
                         break
                 if not found:
                     print(parse_error("Invalid iface, it does not exist in device."))
+                else:
+                    break
 
         while True:
             string = input("Enter address: ")
@@ -483,7 +492,7 @@ class RouterMenu(DeviceMenu):
                     print(parse_error("Invalid IP mask."))
 
         while True:
-            string = input("Enter next hop (ip address or iface): ")
+            string = input("Enter next hop (ip address): ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
@@ -526,26 +535,10 @@ class RouterMenu(DeviceMenu):
             dict: Updated OSPF routing configuration.
                 - "process_id": int,        # OSPF process ID.
                 - "option": int,            # Option selected for OSPF configuration.
-                - "iface_list": list[str]   # List of interface names for OSPF. ONLY FOR IFACE MENU OPTION
+                - "interfaces": list[str]   # List of interface names for OSPF. ONLY FOR IFACE MENU OPTION
         """
 
         info = dict()
-        while True:
-            # print(device["ip_table"])
-            string = input("Enter OSPF process id: ")
-            if string.lower() == "exit":
-                print(parse_warning("Exit detected, operation not completed."))
-                return EXIT
-            elif string:
-                try:
-                    num = int(string)
-                    if num < 1 or num > 32:
-                        print(parse_error("Invalid number, must be between 1 and 32, both included."))
-                    else:
-                        info["process_id"] = num
-                        break
-                except ValueError:
-                    print(parse_error("Invalid number, must be between 1 and 32, both included."))
         while True:
             string = input("Configure interfaces (1) or routing process (2)? ")
             if string.lower() == "exit":
@@ -570,17 +563,36 @@ class RouterMenu(DeviceMenu):
                     return EXIT
                 if string:
                     iface_list = string.split(',')
+                    info["iface_list"] = list()
                     ok = 0
                     for iface in iface_list:
-                        for x in device["iface_list"]:
-                            if iface == x["name"]:
+                        for x in device["interfaces"]:
+                            if normalize_iface(iface) == x["name"]:
                                 ok += 1
+                                info['iface_list'].append(x)
                                 break
                     if ok != len(iface_list):
                         print(parse_error("One or more ifaces are not valid."))
                     else:
-                        info["iface_list"] = iface_list
                         break
+
+        else:
+            while True:
+                # print(device["ip_table"])
+                string = input("Enter OSPF process id: ")
+                if string.lower() == "exit":
+                    print(parse_warning("Exit detected, operation not completed."))
+                    return EXIT
+                elif string:
+                    try:
+                        num = int(string)
+                        if num < 1 or num > 32:
+                            print(parse_error("Invalid number, must be between 1 and 32, both included."))
+                        else:
+                            info["process_id"] = num
+                            break
+                    except ValueError:
+                        print(parse_error("Invalid number, must be between 1 and 32, both included."))
         return info
 
     def __show_router_routing_ospf_ifaces__(self) -> int:
@@ -592,22 +604,19 @@ class RouterMenu(DeviceMenu):
         """
         return self.__show_menu__(R_ROUTING_OSPF_IFACE)
 
-    def __router_routing_ospf_iface_hello__(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_hello__(self, info: dict) -> int | dict:
         """
         Configure the OSPF hello interval for each interface in the given list.
 
-        Args:
-            iface_list (list): List of interface dictionaries. Each must include:
-                - 'iface_name' (str): Name of the interface.
-                - 'ospf' (dict): Dictionary containing 'hello_interval'.
 
         Returns:
             int: EXIT if operation is cancelled.
-            list: Updated list of interfaces with modified 'hello_interval'.
         """
-        for iface in iface_list:
-            print(f"Hello interval for {iface['iface_name']} is: {iface['ospf']['hello_interval']}")
+
+        for iface in info['iface_list']:
+            print(f"Hello interval for {iface['name']} is: {iface['ospf']['hello_interval']}")
             while True:
+                info[iface['name']] = dict()
                 string = input("Enter hello interval (default 10s): ")
                 if string.lower() == "exit":
                     print(parse_warning("Exit detected, operation not completed."))
@@ -618,28 +627,25 @@ class RouterMenu(DeviceMenu):
                         if num < 1 or num > 65535:
                             print(parse_error("Invalid number, must be between 1 and 65535, both included."))
                         else:
-                            iface['ospf']["hello_interval"] = num
+                            info[iface['name']]['hello_interval'] = num
                             break
                     except ValueError:
                         print(parse_error("Invalid number, must be between 1 and 65535, both included."))
-        return iface_list
+        return info
 
-    def __router_routing_ospf_iface_dead__(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_dead__(self, info: dict) -> int | dict:
         """
         Configure the OSPF dead interval for each interface in the given list.
 
-        Args:
-            iface_list (list): List of interface dictionaries. Each must include:
-                - 'iface_name' (str)
-                - 'ospf' (dict): must contain 'dead_interval'.
 
         Returns:
             int: EXIT if operation is cancelled.
             list: Updated interface list with modified 'dead_interval'.
         """
-        for iface in iface_list:
-            print(f"Dead interval for {iface['iface_name']} is: {iface['ospf']['dead_interval']}")
+        for iface in info['iface_list']:
+            print(f"Dead interval for {iface['name']} is: {iface['ospf']['dead_interval']}")
             while True:
+                info[iface['name']] = dict()
                 string = input("Enter dead interval (default 40s): ")
                 if string.lower() == "exit":
                     print(parse_warning("Exit detected, operation not completed."))
@@ -650,62 +656,73 @@ class RouterMenu(DeviceMenu):
                         if num < 1 or num > 65535:
                             print(parse_error("Invalid number, must be between 1 and 65535, both included."))
                         else:
-                            iface['ospf']["dead_interval"] = num
+                            info[iface['name']]['dead_interval'] = num
                             break
                     except ValueError:
                         print(parse_error("Invalid number, must be between 1 and 65535, both included."))
-        return iface_list
+        return info
 
-    def __router_routing_ospf_iface_passive__(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_passive__(self, info: dict) -> int | dict:
         """
         Configure whether each interface in the list is set as OSPF passive.
 
         Args:
-            iface_list (list): List of interface dictionaries. Each must include:
-                - 'iface_name' (str)
-                - 'ospf' (dict): must contain 'is_passive'.
 
         Returns:
             int: EXIT if operation is cancelled.
             list: Updated interface list with modified 'is_passive' flags.
         """
-        for iface in iface_list:
+        while True:
+            # print(device["ip_table"])
+            string = input("Enter OSPF process id: ")
+            if string.lower() == "exit":
+                print(parse_warning("Exit detected, operation not completed."))
+                return EXIT
+            elif string:
+                try:
+                    num = int(string)
+                    if num < 1 or num > 32:
+                        print(parse_error("Invalid number, must be between 1 and 32, both included."))
+                    else:
+                        info["process_id"] = num
+                        break
+                except ValueError:
+                    print(parse_error("Invalid number, must be between 1 and 32, both included."))
+
+        for iface in info['iface_list']:
             if iface['ospf']['is_passive']:
-                print(f"Interface {iface['iface_name']} is passive.")
+                print(f"Interface {iface['name']} is passive.")
             else:
-                print(f"Interface {iface['iface_name']} is NOT passive.")
+                print(f"Interface {iface['name']} is NOT passive.")
             while True:
+                info[iface['name']] = dict()
                 string = input("Set this iface as passive (y/n): ")
                 if string.lower() == "exit":
                     print(parse_warning("Exit detected, operation not completed."))
                     return EXIT
                 elif string:
                     if string.lower() == 'y':
-                        iface['ospf']['is_passive'] = True
+                        info[iface['name']]['is_passive'] = True
                         break
                     elif string.lower() == 'n':
-                        iface['ospf']['is_passive'] = False
+                        info[iface['name']]['is_passive'] = False
                         break
                     else:
                         print(parse_error("Invalid option."))
-        return iface_list
+        return info
 
-    def __router_routing_ospf_iface_priority__(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_priority__(self, info: dict) -> int | dict:
         """
         Configure the OSPF priority value for each interface in the list.
-
-        Args:
-            iface_list (list): List of interface dictionaries. Each must include:
-                - 'iface_name' (str)
-                - 'ospf' (dict): must contain 'priority'.
 
         Returns:
             int: EXIT if operation is cancelled.
             list: Updated interface list with modified 'priority' values.
         """
-        for iface in iface_list:
-            print(f"Priority for {iface['iface_name']} is: {iface['ospf']['priority']}")
+        for iface in info['iface_list']:
+            print(f"Priority for {iface['name']} is: {iface['ospf']['priority']}")
             while True:
+                info[iface['name']] = dict()
                 string = input("Enter priority (default 40s): ")
                 if string.lower() == "exit":
                     print(parse_warning("Exit detected, operation not completed."))
@@ -716,28 +733,26 @@ class RouterMenu(DeviceMenu):
                         if num < 0 or num > 255:
                             print(parse_error("Invalid number, must be between 0 and 255, both included."))
                         else:
-                            iface['ospf']["priority"] = num
+                            info[iface['name']]['priority'] = num
                             break
                     except ValueError:
                         print(parse_error("Invalid number, must be between 0 and 255, both included."))
-        return iface_list
+        return info
 
-    def __router_routing_ospf_iface_cost__(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_cost__(self, info: dict) -> int | dict:
         """
         Configure the OSPF cost value for each interface in the list.
 
         Args:
-            iface_list (list): List of interface dictionaries. Each must include:
-                - 'iface_name' (str)
-                - 'ospf' (dict): must contain 'cost'.
 
         Returns:
             int: EXIT if operation is cancelled.
             list: Updated interface list with modified 'cost' values.
         """
-        for iface in iface_list:
-            print(f"Cost for {iface['iface_name']} is: {iface['ospf']['cost']}")
+        for iface in info['iface_list']:
+            print(f"Cost for {iface['name']} is: {iface['ospf']['cost']}")
             while True:
+                info[iface['name']] = dict()
                 string = input("Enter cost (default 1): ")
                 if string.lower() == "exit":
                     print(parse_warning("Exit detected, operation not completed."))
@@ -748,45 +763,44 @@ class RouterMenu(DeviceMenu):
                         if num < 1 or num > 65535:
                             print(parse_error("Invalid number, must be between 1 and 65535, both included."))
                         else:
-                            iface['ospf']["cost"] = num
+                            info[iface['name']]['cost'] = num
                             break
                     except ValueError:
                         print(parse_error("Invalid number, must be between 1 and 65535, both included."))
-        return iface_list
+        return info
 
-    def __router_routing_ospf_iface_point_to_point__(self, iface_list: list) -> int | list:
+    def __router_routing_ospf_iface_point_to_point__(self, info: dict) -> int | dict:
         """
         Set OSPF point-to-point mode on interfaces.
 
         Args:
-            iface_list (list): List of interface dictionaries. Each must include:
-                - 'iface_name' (str)
-                - 'ospf' (dict): must contain 'is_pint_to_point'.
+
 
         Returns:
             int: EXIT if operation is cancelled.
             list: Updated interface list with 'is_pint_to_point' flags set.
         """
-        for iface in iface_list:
+        for iface in info['iface_list']:
             if iface['ospf']['is_pint_to_point']:
-                print(f"Interface {iface['iface_name']} is point-to-point.")
+                print(f"Interface {iface['name']} is point-to-point.")
             else:
-                print(f"Interface {iface['iface_name']} is NOT point-to-point.")
+                print(f"Interface {iface['name']} is NOT point-to-point.")
             while True:
+                info[iface['name']] = dict()
                 string = input("Set this iface as point-to-point (y/n): ")
                 if string.lower() == "exit":
                     print(parse_warning("Exit detected, operation not completed."))
                     return EXIT
                 elif string:
                     if string.lower() == 'y':
-                        iface['ospf']['is_pint_to_point'] = True
+                        info[iface['name']]['is_point_to_point'] = True
                         break
                     elif string.lower() == 'n':
-                        iface['ospf']['is_pint_to_point'] = False
+                        info[iface['name']]['is_point_to_point'] = False
                         break
                     else:
                         print(parse_error("Invalid option."))
-        return iface_list
+        return info
 
     def __show_router_routing_ospf_process__(self) -> int:
         """
@@ -1023,31 +1037,37 @@ class RouterMenu(DeviceMenu):
             case 2:
                 # L3 iface config
                 info = self.__show_router_l3_iface_config__(device)
-                info["option"] = self.__show_menu__(R_L3_IFACE_CONFIG)
                 if info == EXIT:
                     config_option = None
                 else:
-                    option = info.get('option')
-                    description = ""
-                    is_up = False
-                    for iface in device['iface_list']:
-                        if iface['name'] == info['iface']:
-                            description = iface['description'] if iface['description'] else ""
-                            is_up = iface['is_up']
-                    match option:
-                        case 1:
-                            info = self.__router_iface_ip_address__(info, devices)
-                        case 2:
-                            info = self.__router_subiface_config__(info, device)
-                        case 3:
-                            info = self.device_iface_description(description, info)
-                        case 4:
-                            info = self.device_iface_shutdown(is_up, info)
+                    info["option"] = self.__show_menu__(R_L3_IFACE_CONFIG)
+                    if info == EXIT:
+                        config_option = None
+                    else:
+                        option = info.get('option')
+                        description = ""
+                        is_up = False
+                        for iface in device['interfaces']:
+                            if iface['name'] == info['iface']:
+                                description = iface['description'] if iface['description'] else ""
+                                is_up = iface['is_up']
+                        match option:
+                            case 1:
+                                info = self.__router_iface_ip_address__(info, devices)
+                            case 2:
+                                info = self.__router_subiface_config__(info, device)
+                            case 3:
+                                info = self.device_iface_description(description, info)
+                            case 4:
+                                info = self.device_iface_shutdown(is_up, info)
 
             case 3:
                 # Redundancy config (HSRP)
                 info = self.__show_router_l3_iface_config__(device)
-                info = self.__router_redundancy_config__(device, info)
+                if info == EXIT:
+                    config_option = None
+                else:
+                    info = self.__router_redundancy_config__(device, info)
 
             case 4:
                 # Routing config
@@ -1067,17 +1087,17 @@ class RouterMenu(DeviceMenu):
                                 option = self.__show_router_routing_ospf_ifaces__()
                                 match option:
                                     case 1:
-                                        info = self.__router_routing_ospf_iface_hello__(info['iface_list'])
+                                        info = self.__router_routing_ospf_iface_hello__(info)
                                     case 2:
-                                        info = self.__router_routing_ospf_iface_dead__(info['iface_list'])
+                                        info = self.__router_routing_ospf_iface_dead__(info)
                                     case 3:
-                                        info = self.__router_routing_ospf_iface_passive__(info['iface_list'])
+                                        info = self.__router_routing_ospf_iface_passive__(info)
                                     case 4:
-                                        info = self.__router_routing_ospf_iface_priority__(info['iface_list'])
+                                        info = self.__router_routing_ospf_iface_priority__(info)
                                     case 5:
-                                        info = self.__router_routing_ospf_iface_cost__(info['iface_list'])
+                                        info = self.__router_routing_ospf_iface_cost__(info)
                                     case 6:
-                                        info = self.__router_routing_ospf_iface_point_to_point__(info['iface_list'])
+                                        info = self.__router_routing_ospf_iface_point_to_point__(info)
 
                             else:
                                 # Process

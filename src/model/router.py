@@ -13,15 +13,15 @@ from model.dhcp import DHCP
 from model.interface import normalize_iface
 
 class Router(Device):
-    def __init__(self, hostname: str, ip_mgmt: IPv4Address, iface_mgmt: str, security: dict, interfaces: List[dict],
+    def __init__(self, device_name: str, ip_mgmt: IPv4Address, iface_mgmt: str, security: dict, interfaces: List[dict],
                  users: List[dict] = None, banner: str = None, ip_domain_lookup: bool = False,
                  dhcp: dict = None, routing_process: dict = None):
-        super().__init__(hostname, ip_mgmt, iface_mgmt, security, users, banner, ip_domain_lookup)
+        super().__init__(device_name, ip_mgmt, iface_mgmt, security, users, banner, ip_domain_lookup)
         self.interfaces = []
         for interface in interfaces:
             new_interface = L3Interface(interface["name"], interface["is_up"], interface["description"],
-                                        interface["ip_address"], interface["netmask"], interface["ospf"], interface["l3_redundancy"],
-                                        interface["helper_address"])
+                                        interface["ip_address"], interface["netmask"], interface["ospf"],
+                                        interface["l3_redundancy"], interface["helper_address"])
             self.interfaces.append(new_interface)
         self.routing_process = RoutingProcess(routing_process["ospf_processes"], routing_process["static_routes"])
         self.dhcp = DHCP(dhcp["pools"], dhcp["excluded_address"])
@@ -51,14 +51,40 @@ class Router(Device):
         device_info = super().get_device_info()
         device_info["device_type"] = "R"
 
-        device_info["iface_list"] = list()
+        # When config is empty
+        # interfaces is list
+        #
+
+        device_info["interfaces"] = list()
         for iface in self.interfaces:
-            device_info["iface_list"].append(iface.get_info())
+            device_info["interfaces"].append(iface.get_info())
 
         device_info["dhcp"] = self.dhcp.get_info()
         device_info["routing"] = self.routing_process.get_info()
 
         return device_info
+
+    def get_config(self) -> dict:
+        device_config = super().get_config()
+
+        interfaces = list()
+        for iface in self.interfaces:
+            if iface.name != self.mgmt_iface:
+                iface_config = iface.get_config()
+                if iface_config is not None:
+                    interfaces.append(iface_config)
+        if len(interfaces) > 0:
+            device_config['interfaces'] = interfaces
+
+        dhcp = self.dhcp.get_config()
+        if dhcp is not None:
+            device_config['dhcp'] = dhcp
+        routing = self.routing_process.get_config()
+        if routing is not None:
+            device_config["routing"] = routing
+
+        return device_config
+
 
     def config(self, configuration: dict) -> list:
         # BASIC AND SECURITY CONFIG
@@ -77,15 +103,15 @@ class Router(Device):
             else:
                 config_lines += [f"interface {iface}"]
 
-            if "iface_desc" in configuration:
-                config_lines.append(f"description {configuration['iface_desc']}")
+            if "description" in configuration:
+                config_lines.append(f"description {configuration['description']}")
 
-            if "ip_addr" in configuration:
-                config_lines.append(f"ip address {configuration['ip_addr']} {configuration['mask']}")
+            if "ip_address" in configuration:
+                config_lines.append(f"ip address {configuration['ip_address']} {configuration['mask']}")
 
-            if configuration.get("iface_shutdown") is True:
+            if configuration.get("is_up") is False:
                 config_lines.append("shutdown")
-            elif configuration.get("iface_shutdown") is False:
+            elif configuration.get("is_up") is True:
                 config_lines.append("no shutdown")
 
             # HSRP REDUNDANCY
@@ -169,34 +195,30 @@ class Router(Device):
                 elif configuration.get("is_redistribute") is False:
                     config_lines.append(f"no redistribute static subnet")
 
-            if isinstance(configuration.get("iface_list"), list) and configuration["iface_list"]:
-                for item in configuration["iface_list"]:
-                    name = item.get("iface_name") or item.get("name") or item  # support simple str list
-                    ospf = item.get("ospf", {}) if isinstance(item, dict) else {}
-                    if not name:
-                        continue
-                    config_lines += [f"interface {name}"]
+        if "iface_list" in configuration:
+            passive_ifaces = []
+            for item in configuration["iface_list"]:
+                iface_name = item['name']
+                config_lines += [f"interface {iface_name}"]
 
-                    if "hello_interval" in ospf:
-                        config_lines.append(f"ip ospf hello-interval {ospf['hello_interval']}")
-                    if "dead_interval" in ospf:
-                        config_lines.append(f"ip ospf dead-interval {ospf['dead_interval']}")
-                    if "priority" in ospf:
-                        config_lines.append(f"ip ospf priority {ospf['priority']}")
-                    if "cost" in ospf:
-                        config_lines.append(f"ip ospf cost {ospf['cost']}")
-                    if ospf.get("is_pint_to_point") is True:
-                        config_lines.append("ip ospf network point-to-point")
+                if "hello_interval" in configuration[iface_name]:
+                    config_lines.append(f"ip ospf hello-interval {configuration[iface_name]['hello_interval']}")
+                if "dead_interval" in configuration[iface_name]:
+                    config_lines.append(f"ip ospf dead-interval {configuration[iface_name]['dead_interval']}")
+                if "priority" in configuration[iface_name]:
+                    config_lines.append(f"ip ospf priority {configuration[iface_name]['priority']}")
+                if "cost" in configuration[iface_name]:
+                    config_lines.append(f"ip ospf cost {configuration[iface_name]['cost']}")
+                if configuration[iface_name].get("is_pint_to_point") is True:
+                    config_lines.append("ip ospf network point-to-point")
+                if configuration[iface_name].get("is_passive") is True:
+                    passive_ifaces.append(iface_name)
 
-                passive_ifaces = [
-                    (item.get("iface_name") or item.get("name"))
-                    for item in configuration["iface_list"]
-                    if isinstance(item, dict) and item.get("ospf", {}).get("is_passive") is True
-                ]
-                if passive_ifaces:
-                    config_lines.append(f"router ospf {pid}")
-                    for pif in passive_ifaces:
-                        config_lines.append(f"passive-interface {pif}")
+            if len(passive_ifaces) != 0:
+                pid = configuration['process_id']
+                config_lines.append(f"router ospf {pid}")
+                for pif in passive_ifaces:
+                    config_lines.append(f"passive-interface {pif}")
 
         return config_lines
 
@@ -212,10 +234,10 @@ class Router(Device):
         """
 
         nr = InitNornir(config_file="config/config.yaml")
-        target = nr.filter(name=self.hostname)
+        target = nr.filter(name=self.device_name)
 
         result = target.run(task=napalm_get, getters=["config"])
-        task_result = result[self.hostname]
+        task_result = result[self.device_name]
         if task_result.failed:
             raise RuntimeError(f"Failed to fetch running config: {task_result.exception}")
 
@@ -238,18 +260,18 @@ class Router(Device):
             if intf_objs:
                 p = intf_objs[0]
 
-                if "iface_desc" in configuration:
-                    desc = re.escape(configuration["iface_desc"])
+                if "description" in configuration:
+                    desc = re.escape(configuration["description"])
                     results[f"iface {iface_name} description"] = p.has_child_with(rf'^\s*description\s+{desc}\s*$')
 
-                if "ip_addr" in configuration and "mask" in configuration:
-                    ip = re.escape(str(configuration["ip_addr"]))
+                if "ip_address" in configuration and "mask" in configuration:
+                    ip = re.escape(str(configuration["ip_address"]))
                     m = re.escape(str(configuration["mask"]))
                     results[f"iface {iface_name} ip"] = p.has_child_with(rf'^\s*ip\s+address\s+{ip}\s+{m}\s*$')
 
-                if configuration.get("iface_shutdown") is True:
+                if configuration.get("is_up") is False:
                     results[f"iface {iface_name} shutdown"] = p.has_child_with(r'^\s*shutdown\s*$')
-                elif configuration.get("iface_shutdown") is False:
+                elif configuration.get("is_up") is True:
                     # In the ciscos I am using, when the interface is not shutdown the word shutdown does not appear
                     results[f"iface {iface_name} no shutdown"] = not p.has_child_with(r'^\s*shutdown\s*$')
 
@@ -259,14 +281,9 @@ class Router(Device):
                         <= configuration.keys()):
                     grp = int(configuration["hsrp_group"])
                     vip = str(configuration["hsrp_virtual_ip"])
-                    prio = int(configuration["hsrp_priority"])
-                    preempt = configuration.get("preempt")
 
                     ip_ok = p.has_child_with(rf'^\s*standby\s+{grp}\s+ip\s+{re.escape(vip)}\s*$')
-                    pr_ok = p.has_child_with(rf'^\s*standby\s+{grp}\s+priority\s+{prio}\s*$')
-                    ok = ip_ok and pr_ok
-
-                    results[f"hsrp {iface_name}"] = ok
+                    results[f"hsrp {iface_name}"] = ip_ok
 
 
         # DHCP
@@ -371,62 +388,50 @@ class Router(Device):
                     results[f"ospf {pid} redistribute static subnets"] = p_router.has_child_with(pat)
 
 
-            iface_items = configuration.get("iface_list")
-            if isinstance(iface_items, list) and iface_items:
+        if "iface_list" in configuration:
+            passive_ifaces = []
+            for item in configuration['iface_list']:
+                name = item['name']
+                intf_objs = parse.find_objects(rf'^interface\s+{re.escape(name)}\b')
+                if not intf_objs:
+                    continue
+                p_if = intf_objs[0]
 
-                norm = []
-                for item in iface_items:
-                    if isinstance(item, dict):
-                        name = item.get("iface_name") or item.get("name")
-                        ospf = item.get("ospf", {})
-                        if name:
-                            norm.append({"name": name, "ospf": ospf})
-                    else:
-                        norm.append({"name": str(item), "ospf": {}})
+                if "hello_interval" in configuration[name]:
+                    hi = int(configuration[name]["hello_interval"])
+                    results[f"ospf {name} hello"] = p_if.has_child_with(
+                        rf'^\s*ip\s+ospf\s+hello-interval\s+{hi}\s*$'
+                    )
+                if "dead_interval" in configuration[name]:
+                    di = int(configuration[name]["dead_interval"])
+                    results[f"ospf {name} dead"] = p_if.has_child_with(
+                        rf'^\s*ip\s+ospf\s+dead-interval\s+{di}\s*$'
+                    )
+                if "priority" in configuration[name]:
+                    pr = int(configuration[name]["priority"])
+                    results[f"ospf {name}_priority"] = p_if.has_child_with(
+                        rf'^\s*ip\s+ospf\s+priority\s+{pr}\s*$'
+                    )
+                if "cost" in configuration[name]:
+                    cost = int(configuration[name]["cost"])
+                    results[f"ospf {name} cost"] = p_if.has_child_with(
+                        rf'^\s*ip\s+ospf\s+cost\s+{cost}\s*$'
+                    )
+                if configuration[name].get("is_pint_to_point") is True:  # matches your config() key
+                    results[f"ospf {name} p2p"] = p_if.has_child_with(
+                        r'^\s*ip\s+ospf\s+network\s+point-to-point\s*$'
+                    )
 
-                for entry in norm:
-                    name = entry["name"]
-                    ospf = entry["ospf"]
-                    intf_objs = parse.find_objects(rf'^interface\s+{re.escape(name)}\b')
-                    if not intf_objs:
-                        continue
-                    p_if = intf_objs[0]
+                if "is_passive" in configuration[name]:
+                    passive_ifaces.append(name)
 
-                    if "hello_interval" in ospf:
-                        hi = int(ospf["hello_interval"])
-                        results[f"ospf {pid} {name} hello"] = p_if.has_child_with(
-                            rf'^\s*ip\s+ospf\s+hello-interval\s+{hi}\s*$'
-                        )
-                    if "dead_interval" in ospf:
-                        di = int(ospf["dead_interval"])
-                        results[f"ospf {pid} {name} dead"] = p_if.has_child_with(
-                            rf'^\s*ip\s+ospf\s+dead-interval\s+{di}\s*$'
-                        )
-                    if "priority" in ospf:
-                        pr = int(ospf["priority"])
-                        results[f"ospf {pid} {name}_priority"] = p_if.has_child_with(
-                            rf'^\s*ip\s+ospf\s+priority\s+{pr}\s*$'
-                        )
-                    if "cost" in ospf:
-                        cost = int(ospf["cost"])
-                        results[f"ospf {pid} {name} cost"] = p_if.has_child_with(
-                            rf'^\s*ip\s+ospf\s+cost\s+{cost}\s*$'
-                        )
-                    if ospf.get("is_pint_to_point") is True:  # matches your config() key
-                        results[f"ospf {pid} {name} p2p"] = p_if.has_child_with(
-                            r'^\s*ip\s+ospf\s+network\s+point-to-point\s*$'
-                        )
-
-                passive_ifaces = [
-                    e["name"]
-                    for e in norm
-                    if isinstance(e.get("ospf"), dict) and e["ospf"].get("is_passive") is True
-                ]
-                if passive_ifaces and ospf_objs:
-                    p_router = ospf_objs[0]
-                    for pif in passive_ifaces:
-                        results[f"ospf {pid} passive {pif}"] = p_router.has_child_with(
-                            rf'^\s*passive-interface\s+{re.escape(pif)}\s*$'
-                        )
+            if len(passive_ifaces) > 0:
+                pid = int(configuration["process_id"])
+                ospf_objs = parse.find_objects(rf'^router\s+ospf\s+{pid}\b')
+                p_router = ospf_objs[0]
+                for pif in passive_ifaces:
+                    results[f"ospf {pid} passive {pif}"] = p_router.has_child_with(
+                        rf'^\s*passive-interface\s+{re.escape(pif)}\s*$'
+                    )
 
         return results

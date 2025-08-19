@@ -197,7 +197,7 @@ class Connector:
                     "is_passive": ospf_passive,
                     "priority": ospf_prio,
                     "cost": ospf_cost,
-                    "is_pint_to_point": ospf_ptp,
+                    "is_point_to_point": ospf_ptp,
                 }
 
                 # HSRP
@@ -215,7 +215,7 @@ class Connector:
                     hsrp_vip = IPv4Address(hsrp_vip_s) if hsrp_vip_s else None
                     hsrp_prio = intf.re_match_iter_typed(rf'standby\s+{hsrp_group}\s+priority\s+(\d+)',
                                                          default=None)
-                    if hsrp_prio is not None:
+                    if hsrp_prio is not None and hsrp_prio != 'None':
                         hsrp_prio = int(hsrp_prio)
                     hsrp_pre = bool(
                         intf.re_search_children(rf'standby\s+{hsrp_group}\s+preempt'))
@@ -263,7 +263,8 @@ class Connector:
                         if network == 'None':
                             network = None
                         if network is not None:
-                            network = IPv4Network(network)
+                            net = network.split(' ')
+                            network = IPv4Network(f"{net[0]}/{net[1]}")
                         break
 
                 default_router = None

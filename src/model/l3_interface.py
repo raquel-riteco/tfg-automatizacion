@@ -18,7 +18,7 @@ class L3Interface(Interface):
     def update(self, config_info: dict) -> None:
         super().update(config_info)
 
-        if 'ip_addr' in config_info: self.ip_address = IPv4Address(config_info['ip_addr'])
+        if 'ip_address' in config_info: self.ip_address = IPv4Address(config_info['ip_address'])
         if 'mask' in config_info: self.netmask = IPv4Address(config_info['mask'])
 
         if 'hsrp_group' in config_info:
@@ -46,16 +46,71 @@ class L3Interface(Interface):
 
     def get_info(self) -> dict:
         info = super().get_info()
-        if self.ip_address:
-            info['ip_addr'] = self.ip_address.exploded
+
+        # When config is empty
+        # ip_address is None
+        # netmask is None
+        # ospf is dict with
+            # hello_interval is None
+            # dead_interval is None
+            # is_passive is False
+            # priority is None
+            # cost is None
+            # is point_to_point is False
+        # l3_redundancy is dict with:
+            # hsrp_group is None
+            # hsrp_virtual_ip is None
+            # hsrp_priority is None
+            # preempt is None
+        # helper_address is None
+
+        if self.ip_address is not None:
+            info['ip_address'] = self.ip_address.exploded
         else:
-            info['ip_addr'] = None
-        if self.netmask:
+            info['ip_address'] = None
+        if self.netmask is not None:
             info['netmask'] = self.netmask.exploded
         else:
             info['netmask'] = None
         info['ospf'] = self.ospf
         info['l3_redundancy'] = self.l3_redundancy
-        if self.helper_address:
+        if self.helper_address is not None:
             info['helper_address'] = self.helper_address.exploded
+        else:
+            info['helper_address'] = None
+        return info
+
+    def get_config(self) -> dict:
+        info = super().get_info()
+        if self.ip_address is not None:
+            info['ip_address'] = self.ip_address.exploded
+        if self.netmask is not None:
+            info['netmask'] = self.netmask.exploded
+
+        info['ospf'] = dict()
+        if self.ospf['hello_interval'] is not None:
+            info['hello_interval'] = self.ospf['hello_interval']
+        if self.ospf['dead_interval'] is not None:
+            info['dead_interval'] = self.ospf['dead_interval']
+        if self.ospf['is_passive'] is True:
+            info['is_passive'] = self.ospf['is_passive']
+        if self.ospf['priority'] is not None:
+            info['priority'] = self.ospf['priority']
+        if self.ospf['cost'] is not None:
+            info['cost'] = self.ospf['cost']
+        if self.ospf['is_point_to_point'] is True:
+            info['is_point_to_point'] = self.ospf['is_point_to_point']
+        if len(info['ospf']) == 0:
+            info.pop('ospf')
+
+        if self.l3_redundancy['hsrp_group'] is not None:
+            info['l3_redundancy'] = dict()
+            info['l3_redundancy']['hsrp_group'] = self.l3_redundancy['hsrp_group']
+            if self.l3_redundancy['preempt'] is True:
+                info['l3_redundancy']['preempt'] = self.l3_redundancy['preempt']
+            info['l3_redundancy']['hsrp_virtual_ip'] = self.l3_redundancy['hsrp_virtual_ip'].exploded
+            info['l3_redundancy']['hsrp_priority'] = self.l3_redundancy['hsrp_priority']
+        if self.helper_address is not None:
+            info['helper_address'] = self.helper_address.exploded
+
         return info

@@ -2,25 +2,14 @@ from view.view_parser import parse_error, parse_warning, parse_ok
 from view.router_menu import RouterMenu
 
 from os import listdir
-from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Network
 from typing import Tuple
 import re
 import os
 
-MAIN_MENU = ["MAIN MENU", "Add device", "Remove device", "Show network", "Modify config", "Subnetting", "Exit"]
+EXIT = -1
 
-
-@dataclass
-class Option:
-    # Main menu options
-    exit:           int = -1
-    add_device:     int = 1
-    remove_device:  int = 2
-    show_network:   int = 3
-    modify_config:  int = 4
-    subnetting:     int = 5
-
+MAIN_MENU = ["MAIN MENU", "Add device", "Remove device", "Show network", "Modify config", "Save config", "Subnetting", "Exit"]
 
 class View:
     def __init__(self):
@@ -40,7 +29,6 @@ class View:
         """
         
         option = 0
-        options = Option()
         
         while(True):
             print(f"\n{menu[0]}\n")
@@ -52,7 +40,7 @@ class View:
                 if option < 1 or option > len(menu) - 1:
                     print(parse_error("Invalid option."))
                 elif option == len(menu) - 1:
-                    return options.exit
+                    return EXIT
                 else:
                     return option
             except ValueError:
@@ -78,7 +66,6 @@ class View:
         """
         
         info = dict()
-        options = Option()
         '''
         while True:
             
@@ -104,7 +91,7 @@ class View:
         info["platform"] = "ios"
         
         num = 1
-        if devices != None:
+        if devices is not None:
             for d in devices:
                 if d["device_type"] == info["device_type"]:
                     num += 1
@@ -114,7 +101,7 @@ class View:
             string = input(f"Enter device name (default: {info['device_type']}{num}): ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
-                return options.exit
+                return EXIT
             if string:
                 for d in devices:
                     if string.lower() == d["device_name"].lower():
@@ -134,7 +121,7 @@ class View:
 
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
-                return options.exit
+                return EXIT
 
             iface = string.strip()
 
@@ -161,7 +148,7 @@ class View:
             string = input(f"Enter device's management IP address: ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
-                return options.exit
+                return EXIT
             try:
                 ip = IPv4Address(string)
                 for d in devices:
@@ -182,7 +169,7 @@ class View:
             string = input(f"Want to add device to a group (Y | N)? ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
-                return options.exit
+                return EXIT
             elif string.lower() == "y":
                 string = input(f"What group do you want to add it to? ")
                 info['group'] = string.lower()
@@ -213,8 +200,7 @@ class View:
         print("-" * 65)
 
         for i, d in enumerate(devices, 1):
-            ip = d['mgmt_ip'].exploded
-            print(f"{i:<4}{d['device_name']:<20}{d['device_type']:<8}{d['mgmt_iface']:<20}{ip:<15}")
+            print(f"{i:<4}{d['device_name']:<20}{d['device_type']:<8}{d['mgmt_iface']:<20}{d['mgmt_ip']:<15}")
     
     
     def __get_device_by__(self, devices: list, action: str) -> int | dict:
@@ -235,62 +221,70 @@ class View:
                     - name: str
                     - mgmt_ip: IPv4Address
         """
-        options = Option()
         info = dict()
         self.__show_devices__(devices)
         if len(devices) == 0:
-            return options.exit
+            return EXIT
     
         while True:
             found = -1
             string = input(f"\n{action} by id, name or management IP address (id | name | IP): ")
             match string.lower():
                 case "id":
-                    string = input("Enter id: ")
-                    try:
-                        found = int(string)
-                        if found < 1 or found > len(devices):
+                    while True:
+                        string = input("Enter id: ")
+                        if string.lower() == "exit":
+                            return EXIT
+                        try:
+                            found = int(string)
+                            if found < 1 or found > len(devices):
+                                print(parse_error("This id does not exist."))
+                            else:
+                                info["action_by"] = "id"
+                                info["identification"] = found
+                                return info
+                        except ValueError:
                             print(parse_error("This id does not exist."))
-                        else:
-                            info["action_by"] = "id"
-                            info["identification"] = found
-                            return info
-                    except ValueError:
-                        print(parse_error("This id does not exist."))
                                                 
                 case "name":
-                    string = input("Enter name: ")  
-                    for i in range(len(devices)):
-                        if devices[i]["device_name"] == string:
-                            found = i
-                            
-                    if found == -1:
-                        print(parse_error("This name does not exist."))
-                    else:
-                        info["action_by"] = "name"
-                        info["identification"] = string
-                        return info
+                    while True:
+                        string = input("Enter name: ")
+                        if string.lower() == "exit":
+                            return EXIT
+                        for i in range(len(devices)):
+                            if devices[i]["device_name"] == string:
+                                found = i
+
+                        if found == -1:
+                            print(parse_error("This name does not exist."))
+                        else:
+                            info["action_by"] = "name"
+                            info["identification"] = string
+                            return info
                     
                 case "ip":
-                    string = input("Enter management IP address: ")
-                    try:
-                        ip = IPv4Address(string)
-                        for i in range(len(devices)):
-                            if devices[i]["mgmt_ip"] == ip:
-                                found = i
-                                
-                        if found == -1:
-                            print(parse_error("This management IP address does not exist."))
-                        else:
-                            info["action_by"] = "mgmt_ip"
-                            info["identification"] = ip
-                            return info
-                    except: 
-                        print(parse_error("The IP address is not valid."))
+                    while True:
+                        string = input("Enter management IP address: ")
+                        if string.lower() == "exit":
+                            return EXIT
+                        try:
+                            ip = IPv4Address(string)
+                            for i in range(len(devices)):
+                                if devices[i]["mgmt_ip"] == ip:
+                                    found = i
+
+                            if found == -1:
+                                print(parse_error("This management IP address does not exist."))
+                            else:
+                                info["action_by"] = "mgmt_ip"
+                                info["identification"] = ip
+                                return info
+                        except:
+                            print(parse_error("The IP address is not valid."))
                     
                 case "exit":
                     print(parse_warning("Exit detected, operation not completed."))
-                    return options.exit
+                    return EXIT
                 
                 case _:
                     print(parse_error("Invalid option."))
@@ -363,15 +357,12 @@ class View:
         """
         
         info = dict()
-        network_addr = str()
-        options = Option()
-        
         while True:
             string = input("Enter network: ")
             
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
-                return options.exit
+                return EXIT
             try:
                 ip = IPv4Network(string)
                 network_addr = string
@@ -385,7 +376,7 @@ class View:
             
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
-                return options.exit
+                return EXIT
             try:
                 if "/" in string:
                     string = string.split("/")[1]
@@ -401,7 +392,7 @@ class View:
             
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
-                return options.exit
+                return EXIT
             try:
                 int(string)
                 info["num_networks"] = int(string)
@@ -417,7 +408,7 @@ class View:
                 
                 if string.lower() == "exit":
                     print(parse_warning("Exit detected, operation not completed."))
-                    return options.exit
+                    return EXIT
                 try:
                     int(string)
                     info["list_num_devices"].append(int(string))
@@ -426,20 +417,49 @@ class View:
                     print(parse_error("Invalid number."))
                     
         return info
+    
+    def __save_config__(self, devices: list) -> int | dict:
+        print("Configuration is saved in the db/ directory, file must be .json.")
+        print(parse_warning("If filename exists and there is saved configuration, configuration\n"
+                            "will be overwritten. If filename does not exist, it will be created."))
+        info = dict()
+        while True:
+            string = input("Want to save configuration for all devices (Y | N)? ")
+            match string.lower():
+                case "exit":
+                    return EXIT
+                case "y":
+                    info['device'] = "all"
+                    break
+                case "n":
+                    info ['device'] = self.__get_device_by__(devices, "Save config")
+                    if info['device'] == EXIT:
+                        return EXIT
+                    else:
+                        break
 
-    def display_subnetting(self, info: dict, subnets: list) -> tuple[int, str]:
+        while True:
+            string = input("Enter filename: ")
+            if string.lower() == "exit":
+                return EXIT
+            else:
+                split_str = string.split(".")
+                if len(split_str) != 2 or split_str[1] != "json":
+                    print(parse_error("Filename must contain the .json file extension."))
+                else:
+                    info['filename'] = string
+                    return info
+                    
+
+    def display_subnetting(self, info: dict, subnets: list) -> None:
         """
         Displays the original subnetting input and the resulting subnets in a clean, readable format.
 
         Args:
             subnets (list of IPv4Network): List of generated subnets.
 
-        Returns:
-            tuple: A tuple containing:
-                - int: 1 if the user wants to save the information, 0 otherwise.
-                - str: The filename if the user wants to save the information, an empty string otherwise.
         """
-        print("\n=== Subnetting Summary ===\n")
+        print("\nSubnetting Summary\n")
 
         base_net = info["network"]
         print(f"Base Network      : {base_net.network_address}")
@@ -462,31 +482,6 @@ class View:
             print(f"  Last Host       : {last_host}")
             print(f"  Total Usable IPs: {subnet.num_addresses - 2}\n\n")
 
-        while True:
-            string = input("Do you want to save the subnetting in a file (Y | N)? ")
-            match string.lower():
-                case "y":
-                    while True:
-                        filename = input("Enter filename (formats accepted: .json, .txt, .csv): ")
-                        if filename.lower() == "exit":
-                            print(parse_warning("Exit detected, operation not completed."))
-                            return 0, ""
-                        else:
-                            f, file_extension = os.path.splitext(filename)
-                            if (file_extension != ".json") and (file_extension != ".txt") and (
-                                    file_extension != ".csv"):
-                                print(parse_error("Invalid format."))
-                            else:
-                                return 1, filename
-
-                case "n":
-                    return 0, ""
-                case "exit":
-                    print(parse_warning("Exit detected, operation not completed."))
-                    return 0, ""
-                case _:
-                    print(parse_error("Invalid option."))
-
 
     def start_menu(self) -> Tuple[int, dict]:
         """
@@ -497,9 +492,6 @@ class View:
         This method handles user input for setting up default credentials and allows the user to choose 
         whether to load a configuration file from the 'db/' directory. If the file exists, the function 
         returns 1 and sets the filename in the provided `info` dictionary. If no file is loaded, it returns 0.
-
-        Args:
-            None
 
         Returns:
         info (dict): A dictionary to store the default username, password, and filename (if a file is loaded).
@@ -549,20 +541,19 @@ class View:
     
     # If return is -1, exit program, if option is 0 do nothing, if option is number do option
     def main_menu(self, devices: list) -> Tuple[int, dict]:
-        options = Option()
         option = self.__show_menu__(MAIN_MENU)
         info = dict()
         match option:
             case 1:
                 # Add device
                 info = self.__add_device__(devices)
-                if info == options.exit:
+                if info == EXIT:
                     option = 0
                                     
             case 2:
                 # Remove device
                 info = self.__remove_device__(devices)
-                if info == options.exit:
+                if info == EXIT:
                     option = 0
 
             case 3:
@@ -571,19 +562,26 @@ class View:
             case 4:
                 # Configure device
                 info = self.__modify_config__(devices)
-                if info == options.exit:
+                if info == EXIT:
                     option = 0
             
             case 5:
+                # Save config
+                info = self.__save_config__(devices)
+                if info == EXIT:
+                    option = 0
+
+            case 6:
                 # Subnetting
                 info = self.__ask_subnetting__()
-                if info == options.exit:
+                if info == EXIT:
                     option = 0
+
         return option, info
     
     
     def goodbye(self) -> None:
-        print("\nGOODBYE!\n")
+        print("\n\nGOODBYE!\n")
         
     def print_error(self, msg: str) -> None:
         print(parse_error(msg))
