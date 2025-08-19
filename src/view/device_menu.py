@@ -4,7 +4,7 @@ from view.view_parser import parse_error, parse_warning
 DEV_BASIC_CONFIG = ["DEVICE BASIC CONFIG MENU", "Device name", "IP domain lookup", "Add user", "Remove user",
                     "Banner MOTD", "Security", "Save running config", "Exit"]
 DEV_SECURITY_CONFIG = ["DEVICE SECURITY CONFIG MENU", "Encrypt passwords", "Console access", "VTY access",
-                       "Enable passw", "Exit"]
+                       "Enable password", "Exit"]
 
 EXIT = -1
 
@@ -498,7 +498,7 @@ class DeviceMenu:
         else:
             print("Currently, enable password is not configured.")
             while True:
-                string = input("Want to set a new enable password (Y|N)? ")
+                string = input("Want to set a new enable password (Y | N)? ")
                 match string.lower():
                     case 'y':
                         info["enable_passwd"] = input("Enter enable password: ")
@@ -518,7 +518,7 @@ class DeviceMenu:
         Returns:
             int: EXIT if the operation is exited.
             dict: Updated interface description.
-                - "iface_desc": str  # New interface description
+                - "description": str  # New interface description
         """
 
         if description == "":
@@ -531,7 +531,7 @@ class DeviceMenu:
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
             if string:
-                info["iface_desc"] = string
+                info["description"] = string
                 return info
 
 
@@ -542,14 +542,14 @@ class DeviceMenu:
         Returns:
             int: EXIT if the operation is exited.
             dict: Updated interface description.
-                - "iface_shutdown": bool
+                - "is_up": bool
         """
         while True:
             if is_up:
                 string = input("Interface is Up, want to shutdown (Y | N)? ")
                 match string.lower():
                     case 'y':
-                        info["iface_shutdown"] = True
+                        info["is_up"] = False
                         return info
                     case 'n':
                         return EXIT
@@ -562,7 +562,7 @@ class DeviceMenu:
                 string = input("Interface is Down, want to no shutdown / set it up (Y | N)? ")
                 match string.lower():
                     case 'y':
-                        info["iface_shutdown"] = False
+                        info["is_up"] = True
                         return info
                     case 'n':
                         return EXIT

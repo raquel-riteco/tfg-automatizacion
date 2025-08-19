@@ -1,12 +1,12 @@
 from ipaddress import IPv4Address
-from typing import Any
 
 from model.connector import Connector
 from model.router import Router
 from view.router_menu import RouterMenu
-from view.view import Option as options
 from view.view import View
 from model.files import Files
+
+EXIT = -1
 
 class DeviceController:
     def __init__(self):
@@ -100,10 +100,10 @@ class DeviceController:
             option = None
             while True:
                 returned = self.menu.show_router_menu(self.device.get_device_info(), devices_info, option)
-                if returned != options.exit:
+                if returned != EXIT:
                     info, option = returned
                     if info != -1:
-                        if 'iface' in info and len(info) <= 2:
+                        if 'iface' in info and len(info) <= 2 and 'helper_address' not in info:
                             info = dict()
                         if len(info) > 0:
                             self.__execute_device_config__(self.device.get_device_info(), info)
@@ -115,3 +115,6 @@ class DeviceController:
 
     def get_device_info(self) -> dict:
         return self.device.get_device_info()
+
+    def get_device_config(self) -> dict:
+        return self.device.get_config()

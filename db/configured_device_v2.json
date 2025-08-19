@@ -1,0 +1,116 @@
+{
+    "R4-c7200": {
+        "inventory": {
+            "groups": [],
+            "hostname": "192.168.174.201",
+            "platform": "ios"
+        },
+        "connect": {
+            "device_type": "R",
+            "device_name": "R4-c7200",
+            "mgmt_ip": "192.168.174.201",
+            "mgmt_iface": "GigabitEthernet0/0"
+        },
+        "config": {
+            "security": {
+                "console_access": "local_database",
+                "enable_by_password": true,
+                "is_encrypted": true
+            },
+            "users": [
+                {
+                    "username": "user",
+                    "privilege": 15
+                },
+                {
+                    "username": "raquel",
+                    "privilege": 15
+                }
+            ],
+            "banner": "banner motd ^CUnauthorized acces is prohibitted!^C",
+            "ip_domain_lookup": false,
+            "interfaces": [
+                {
+                    "name": "Ethernet0/0",
+                    "description": null,
+                    "is_up": false,
+                    "hello_interval": 5,
+                    "dead_interval": 10,
+                    "l3_redundancy": {
+                        "hsrp_group": 100,
+                        "hsrp_virtual_ip": "10.0.100.1",
+                        "hsrp_priority": 150
+                    }
+                },
+                {
+                    "name": "GigabitEthernet1/0",
+                    "description": "This is a description",
+                    "is_up": true,
+                    "ip_address": "10.0.10.1",
+                    "netmask": "255.255.255.0"
+                },
+                {
+                    "name": "GigabitEthernet2/0",
+                    "description": null,
+                    "is_up": false
+                },
+                {
+                    "name": "GigabitEthernet2/0.100",
+                    "description": null,
+                    "is_up": false,
+                    "ip_address": "10.0.100.1",
+                    "netmask": "255.255.255.0"
+                },
+                {
+                    "name": "GigabitEthernet3/0",
+                    "description": null,
+                    "is_up": false,
+                    "l3_redundancy": {
+                        "hsrp_group": 100,
+                        "preempt": true,
+                        "hsrp_virtual_ip": "10.0.200.1",
+                        "hsrp_priority": "None"
+                    }
+                }
+            ],
+            "dhcp": {
+                "excluded_address": [
+                    {
+                        "start": "10.0.10.0",
+                        "end": "10.0.10.100"
+                    }
+                ],
+                "pools": [
+                    {
+                        "network": "10.0.10.0/24",
+                        "default_router": "10.0.10.1",
+                        "name": "POOL"
+                    }
+                ]
+            },
+            "routing": {
+                "ospf": [
+                    {
+                        "id": 1,
+                        "bw_cost": 1000,
+                        "networks": [
+                            {
+                                "network": "10.0.100.0/24",
+                                "area": 1
+                            }
+                        ],
+                        "router_id": "10.0.10.100",
+                        "redistribute": true
+                    }
+                ],
+                "static_routes": [
+                    {
+                        "destination": "10.0.200.0/24",
+                        "next_hop": "10.0.100.2",
+                        "admin_dist": 1
+                    }
+                ]
+            }
+        }
+    }
+}

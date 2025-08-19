@@ -1,12 +1,4 @@
-R1-c7200:
+R4-c7200:
   groups: []
-  hostname: 10.0.110.2
-  platform: ios
-R2-c7200:
-  groups: []
-  hostname: 192.168.174.200
-  platform: ios
-R3-c7200:
-  groups: []
-  hostname: 10.0.120.2
+  hostname: 192.168.174.201
   platform: ios

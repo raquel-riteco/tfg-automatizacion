@@ -1,9 +1,10 @@
 from typing import cast
 
 from model.files import Files
-from view.view import View, Option
+from view.view import View
 from controller.device_controller import DeviceController
 
+EXIT = -1
 
 class MainController:
     def __init__(self):
@@ -87,7 +88,7 @@ class MainController:
         result = [subnet for _, subnet in sorted(subnets)]
         return result
              
-    def start(self) -> None:
+    def start(self) -> bool:
         """
         Initializes the system by loading configuration data and setting up devices.
 
@@ -96,47 +97,69 @@ class MainController:
         with connection and configuration details, and appends it to the list of device controllers.
 
         """
-        load_config, info = self.view.start_menu()
-        self.files.save_defaults_file(info["defaults"])
-        if load_config:
-            info = self.files.load_config(info["filename"])
-            for device in info:
-                device_info = info[device]
-                device_controller = DeviceController()
-                # Important to call get and not pass the param directly because there may not exist a key "config" in
-                # the device_info dictionary.
-                ok = device_controller.create_device(device_info["connect"], device_info.get("config"))
-                if ok:
-                    self.device_controllers.append(device_controller)
-                
+        try:
+            load_config, info = self.view.start_menu()
+            self.files.save_defaults_file(info["defaults"])
+            if load_config:
+                info = self.files.load_config(info["filename"])
+                for device in info:
+                    device_info = info[device]
+                    device_controller = DeviceController()
+                    # Important to call get and not pass the param directly because there may not exist a key "config" in
+                    # the device_info dictionary.
+                    ok = device_controller.create_device(device_info["connect"], device_info.get("config"))
+                    if ok:
+                        self.device_controllers.append(device_controller)
+            return True
+
+        except KeyboardInterrupt:
+            self.view.goodbye()
+            return False
                 
     def run(self) -> None:
-        option = 0
-        options = Option()
-        while option != options.exit:
-            option, info = self.view.main_menu(self.__get_devices_list__())
-            match option:
-                case 1:
-                    # Add device
-                    device_controller = DeviceController()
-                    device_controller.create_device(info)
-                    self.device_controllers.append(device_controller)
-                case 2:
-                    # Remove device
-                    dev_controller = self.__get_device_controller__(info)
-                    self.device_controllers.remove(dev_controller)
-                case 4:
-                    # Modify config
-                    dev_controller = self.__get_device_controller__(info)
-                    dev_controller.configure_device(self.__get_devices_list__())
-                case 5:
-                    # Subnetting
-                    try:
-                        result_subnetting = self.__generate_subnetting__(info)
-                        save, filename = self.view.display_subnetting(info, result_subnetting)
-                        if save == 1:
-                            self.files.save_subnetting(filename, result_subnetting, info)
-                    except ValueError as e:
-                        self.view.print_error(e.args[0])
-        
-        self.view.goodbye()
+        try:
+            option = 0
+            while option != EXIT:
+                option, info = self.view.main_menu(self.__get_devices_list__())
+                match option:
+                    case 1:
+                        # Add device
+                        device_controller = DeviceController()
+                        device_controller.create_device(info)
+                        self.device_controllers.append(device_controller)
+                    case 2:
+                        # Remove device
+                        dev_controller = self.__get_device_controller__(info)
+                        self.device_controllers.remove(dev_controller)
+                    case 4:
+                        # Modify config
+                        dev_controller = self.__get_device_controller__(info)
+                        dev_controller.configure_device(self.__get_devices_list__())
+                    case 5:
+                        if info['device'] == "all":
+                            for device_controller in self.device_controllers:
+                                device_info = device_controller.get_device_info()
+                                device_config = device_controller.get_device_config()
+                                self.files.save_config(device_info['device_name'], device_info, device_config,
+                                                       info['filename'])
+                                self.view.print_ok(f"Configuration of device {device_info['device_name']}"
+                                                       f"correctly saved.")
+                        else:
+                            device_controller = self.__get_device_controller__(info['device'])
+                            device_info = device_controller.get_device_info()
+                            device_config = device_controller.get_device_config()
+                            self.files.save_config(device_info['device_name'], device_info, device_config,
+                                                   info['filename'])
+                            self.view.print_ok(f"Configuration of device {device_info['device_name']}"
+                                                   f"correctly saved.")
+                    case 6:
+                        # Subnetting
+                        try:
+                            result_subnetting = self.__generate_subnetting__(info)
+                            self.view.display_subnetting(info, result_subnetting)
+                        except ValueError as e:
+                            self.view.print_error(e.args[0])
+            self.view.goodbye()
+
+        except KeyboardInterrupt:
+            self.view.goodbye()

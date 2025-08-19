@@ -19,6 +19,10 @@ class DHCP:
     def get_info(self) -> dict:
         info = dict()
 
+        # When config is empty
+        # excluded_address is empty list
+        # pools is empty list
+
         info['excluded_address'] = list()
         for excluded in self.excluded_addresses:
             dictionary = dict()
@@ -48,3 +52,34 @@ class DHCP:
 
         return info
 
+    def get_config(self) -> dict | None:
+        if len(self.excluded_addresses) == 0 and len(self.pools) == 0:
+                return None
+
+        info = dict()
+        info['excluded_address'] = list()
+        for excluded in self.excluded_addresses:
+            dictionary = dict()
+            if excluded.get('start') is not None:
+                dictionary['start'] = excluded['start'].exploded
+            if excluded.get('end') is not None:
+                dictionary['end'] = excluded['end'].exploded
+            info['excluded_address'].append(dictionary)
+
+        if len(info['excluded_address']) == 0:
+            info.pop('excluded_address')
+
+        info['pools'] = list()
+        for pool in self.pools:
+            dictionary = dict()
+            if pool.get('network') is not None:
+                dictionary['network'] = pool['network'].exploded
+            if pool.get('default_router') is not None:
+                dictionary['default_router'] = pool['default_router'].exploded
+            dictionary['name'] = pool['name']
+            info['pools'].append(dictionary)
+
+        if len(info) == 0:
+            return None
+
+        return info

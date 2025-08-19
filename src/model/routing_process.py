@@ -1,4 +1,4 @@
-from typing import List, cast
+from typing import List
 from ipaddress import IPv4Address, IPv4Network
 
 class OSPF:
@@ -39,6 +39,8 @@ class OSPF:
             info['router_id'] = None
         info['redistribute'] = self.redistribute
         return info
+
+
 
 
 
@@ -109,4 +111,24 @@ class RoutingProcess:
         info['static_routes'] = list()
         for static_route in self.static_routes:
             info['static_routes'].append(static_route.get_info())
+        return info
+
+    def get_config(self) -> dict | None:
+        info = dict()
+        info['ospf'] = list()
+        for ospf in self.ospf_processes:
+            info['ospf'].append(ospf.get_info())
+        info['static_routes'] = list()
+        for static_route in self.static_routes:
+            info['static_routes'].append(static_route.get_info())
+
+        if len(info['ospf']) == 0 and len(info['static_routes']) == 0:
+            return None
+
+        if len(info['ospf']) == 0:
+            info.pop('ospf')
+
+        if len(info['static_routes']) == 0:
+            info.pop('static_routes')
+
         return info

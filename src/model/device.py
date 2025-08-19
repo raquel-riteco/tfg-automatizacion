@@ -1,5 +1,5 @@
 
-from typing import List, cast
+from typing import List
 from ipaddress import IPv4Address
 from nornir import InitNornir
 from nornir_netmiko.tasks import netmiko_save_config
@@ -10,11 +10,11 @@ from model.security import Security
 from model.interface import normalize_iface
 
 class Device:
-    def __init__(self, hostname: str, mgmt_ip: IPv4Address, mgmt_iface: str, security: dict = None,
+    def __init__(self, device_name: str, mgmt_ip: IPv4Address, mgmt_iface: str, security: dict = None,
                  users: List[dict] = None, banner: str = None, ip_domain_lookup: bool = False):
         self.security = Security(security["is_encrypted"], security["console_access"],
                                  security['enable_by_password'], security["vty_protocols"])
-        self.hostname = hostname
+        self.device_name = device_name
         self.mgmt_ip = mgmt_ip
         self.mgmt_iface = normalize_iface(mgmt_iface)
         self.users = users
@@ -24,7 +24,7 @@ class Device:
 
     def update(self, config_info: dict) -> None:
 
-        if 'device_name' in config_info: self.hostname = config_info['device_name']
+        if 'device_name' in config_info: self.device_name = config_info['device_name']
         if 'ip_domain_lookup' in config_info: self.ip_domain_lookup = config_info['ip_domain_lookup']
         if 'username' in config_info:
             self.users.append({'username': config_info['username'], 'privilege': config_info['privilege']})
@@ -40,9 +40,14 @@ class Device:
 
     def get_device_info(self) -> dict:
         device_info = dict()
-        device_info["device_name"] = self.hostname
+        device_info["device_name"] = self.device_name
         device_info["mgmt_iface"] = self.mgmt_iface
-        device_info["mgmt_ip"] = self.mgmt_ip
+        device_info["mgmt_ip"] = self.mgmt_ip.exploded
+
+        # When config is empty
+        # banner = None
+        # user only has ssh user
+        # ip_domain_lookup is False
 
         device_info["security"] = self.security.get_info()
         device_info["users"] = self.users
@@ -50,6 +55,23 @@ class Device:
         device_info["ip_domain_lookup"] = self.ip_domain_lookup
 
         return device_info
+
+    def get_config(self) -> dict:
+        device_config = dict()
+
+        security = self.security.get_config()
+        if security is not None:
+            device_config['security'] = security
+
+        if len(self.users) > 1:
+            device_config['users'] = self.users
+
+        if self.banner is not None:
+            device_config['banner'] = self.banner
+
+        device_config['ip_domain_lookup'] = self.ip_domain_lookup
+
+        return device_config
 
 
     def verify_config_applied(self, configuration: dict) -> dict:
@@ -63,11 +85,11 @@ class Device:
             dict: A dictionary with verification results.
         """
         nr = InitNornir(config_file="config/config.yaml")
-        target = nr.filter(name=self.hostname)
+        target = nr.filter(name=self.device_name)
 
         # Fetch running config
         result = target.run(task=napalm_get, getters=["config"])
-        task_result = result[self.hostname]
+        task_result = result[self.device_name]
 
         if task_result.failed:
             raise RuntimeError(f"Failed to fetch running config: {task_result.exception}")
@@ -93,11 +115,11 @@ class Device:
 
         if "username" in configuration:
             lines = parse.find_lines(rf"^username {configuration['username']} ")
-            results[f"username_{configuration['username']}"] = len(lines) > 0
+            results[f"username {configuration['username']}"] = len(lines) > 0
 
         if "username_delete" in configuration:
             lines = parse.find_lines(rf"^username {configuration['username_delete']} ")
-            results[f"removed_user_{configuration['username_delete']}"] = len(lines) == 0
+            results[f"removed user {configuration['username_delete']}"] = len(lines) == 0
 
         # SECURITY CONFIG
         if "enable_passwd" in configuration:
@@ -138,7 +160,7 @@ class Device:
     def config(self, configuration: dict) -> list:
 
         nr = InitNornir(config_file="config/config.yaml")
-        target = nr.filter(name=self.hostname)
+        target = nr.filter(name=self.device_name)
 
         config_lines = []
 
@@ -199,7 +221,7 @@ class Device:
 
     def save_config(self) -> bool:
         nr = InitNornir(config_file="config/config.yaml")
-        target = nr.filter(name=self.hostname)
+        target = nr.filter(name=self.device_name)
 
         res = target.run(task=netmiko_save_config)
         host = list(target.inventory.hosts.keys())[0]

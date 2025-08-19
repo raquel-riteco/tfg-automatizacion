@@ -1,6 +1,5 @@
 import yaml
 import json
-import os
 
 class Files:
     def __init__(self):
@@ -46,7 +45,10 @@ class Files:
             dict: The contents of the JSON file.
         """
         with open(filename, 'r') as file:
-            return json.load(file)
+            try:
+                return json.load(file)
+            except Exception:
+                return dict()
         
         
     def __write_json__(self, filename: str, info: dict) -> None:
@@ -160,12 +162,25 @@ class Files:
             self.__write_yaml__("inventory/hosts.yaml", devices)
 
 
-    def save_subnetting(self, filename: str, subnets: list, info: dict) -> None:
-        f, file_extension = os.path.splitext(filename)
-        match file_extension:
-            case ".txt":
-                pass
-            case ".csv":
-                pass
-            case ".json":
-                pass
+    def save_config(self, device_name: str, device_info: dict, device_config: dict, filename: str) -> None:
+        try:
+            data = self.__read_json__(f"db/{filename}")
+        except FileNotFoundError:
+            data = dict()
+
+        if device_name not in data:
+            data[device_name] = dict()
+            hosts_info = self.__read_yaml__("inventory/hosts.yaml")
+            data[device_name]['inventory'] = hosts_info[device_name]
+            if "groups" not in data[device_name]['inventory']:
+                data[device_name]['inventory']['groups'] = list()
+
+            data[device_name]['connect'] = dict()
+            data[device_name]['connect']['device_type'] = device_info['device_type']
+            data[device_name]['connect']['device_name'] = device_info['device_name']
+            data[device_name]['connect']['mgmt_ip'] = device_info['mgmt_ip']
+            data[device_name]['connect']['mgmt_iface'] = device_info['mgmt_iface']
+
+        data[device_name]['config'] = device_config
+
+        self.__write_json__(f"db/{filename}", data)
