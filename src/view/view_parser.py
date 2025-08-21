@@ -4,7 +4,7 @@ ERROR           = f"{ESC}[38;5;196m"  # Red
 WARNING         = f"{ESC}[38;5;208m"  # Orange
 NOT_AVAILABLE   = f"{ESC}[38;5;245m"  # Grey
 OK              = f"{ESC}[92m"        # Green
-DEBUG           = f"{ESC}[38;5;39m"  # Blue
+DEBUG           = f"{ESC}[38;5;39m"   # Blue
 
 
 def parse_error(msg: str) -> str:
@@ -71,10 +71,3 @@ def parse_debug(msg: str) -> str:
     """
     return f"{DEBUG}DEBUG: {msg}{RESET_ALL}"
 
-
-if __name__ == "__main__":
-    print(parse_error("This is an error"))
-    print(parse_not_available("This is not available"))
-    print(parse_warning("This is a warning"))
-    print(parse_ok("This is ok"))
-    print(parse_debug("This is debug"))

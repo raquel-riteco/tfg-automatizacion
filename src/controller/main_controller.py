@@ -6,13 +6,31 @@ from controller.device_controller import DeviceController
 
 EXIT = -1
 
+
 class MainController:
+    """
+    The main controller that coordinates the entire device configuration system.
+
+    It manages user interaction, device creation and configuration, file operations,
+    and subnetting logic. This class acts as the entry point of the application,
+    linking the view layer, controller logic, and model data.
+    """
+
     def __init__(self):
+        """
+        Initialize the MainController and all required components.
+        """
         self.files = Files()
         self.view = View()
         self.device_controllers = list()
 
     def __get_devices_list__(self) -> list:
+        """
+        Retrieve a list of all currently loaded device information.
+
+        Returns:
+            list: List of dictionaries, each representing a device's metadata.
+        """
         device_list = list()
         for i in range(len(self.device_controllers)):
             dev_controller = cast(DeviceController, self.device_controllers[i])
@@ -20,8 +38,19 @@ class MainController:
             device_list.append(device_dict)
         return device_list
 
-
     def __get_device_controller__(self, info: dict):
+        """
+        Retrieves a specific DeviceController based on user selection criteria.
+
+        Args:
+            info (dict): Contains 'action_by' and 'identification', which can be:
+                - 'id': Index of the device in the list (1-based)
+                - 'name': Name of the device
+                - 'mgmt_ip': Management IP address of the device
+
+        Returns:
+            DeviceController: The corresponding controller instance, if found.
+        """
         if info['action_by'] == "id":
             return self.device_controllers[info['identification'] - 1]
         elif info['action_by'] == "name":
@@ -33,12 +62,17 @@ class MainController:
             for dev_controller in self.device_controllers:
                 mgmt_ip = dev_controller.get_device_info()["mgmt_ip"]
                 if mgmt_ip == info['identification']:
-                    return dev_controller 
+                    return dev_controller
 
     def __generate_subnetting__(self, info: dict) -> list:
         """
         Automatically generates subnets from a base network, allocating address space
         based on the number of devices required per subnet.
+
+        Args:
+            info (dict): Dictionary containing:
+                - 'network' (IPv4Network): The base network
+                - 'list_num_devices' (list[int]): Number of devices per subnet
 
         Returns:
             list of IPv4Network: The generated subnets in the original input order.
@@ -87,7 +121,7 @@ class MainController:
         # Restore original input order based on index
         result = [subnet for _, subnet in sorted(subnets)]
         return result
-             
+
     def start(self) -> bool:
         """
         Initializes the system by loading configuration data and setting up devices.
@@ -96,6 +130,8 @@ class MainController:
         For each device in the configuration, creates and configures a `DeviceController` instance
         with connection and configuration details, and appends it to the list of device controllers.
 
+        Returns:
+            bool: True if startup is successful, False if interrupted.
         """
         try:
             load_config, info = self.view.start_menu()
@@ -105,8 +141,7 @@ class MainController:
                 for device in info:
                     device_info = info[device]
                     device_controller = DeviceController()
-                    # Important to call get and not pass the param directly because there may not exist a key "config" in
-                    # the device_info dictionary.
+                    # Use .get() in case 'config' key is missing
                     ok = device_controller.create_device(device_info["connect"], device_info.get("config"))
                     if ok:
                         self.device_controllers.append(device_controller)
@@ -115,8 +150,14 @@ class MainController:
         except KeyboardInterrupt:
             self.view.goodbye()
             return False
-                
+
     def run(self) -> None:
+        """
+        Starts the main application loop to interact with the user.
+
+        Presents the main menu and dispatches actions such as adding, removing,
+        configuring devices, saving configurations, or performing subnetting.
+        """
         try:
             option = 0
             while option != EXIT:
@@ -136,22 +177,23 @@ class MainController:
                         dev_controller = self.__get_device_controller__(info)
                         dev_controller.configure_device(self.__get_devices_list__())
                     case 5:
+                        # Save config
                         if info['device'] == "all":
                             for device_controller in self.device_controllers:
                                 device_info = device_controller.get_device_info()
                                 device_config = device_controller.get_device_config()
                                 self.files.save_config(device_info['device_name'], device_info, device_config,
                                                        info['filename'])
-                                self.view.print_ok(f"Configuration of device {device_info['device_name']}"
-                                                       f"correctly saved.")
+                                self.view.print_ok(
+                                    f"Configuration of device {device_info['device_name']} correctly saved.")
                         else:
                             device_controller = self.__get_device_controller__(info['device'])
                             device_info = device_controller.get_device_info()
                             device_config = device_controller.get_device_config()
                             self.files.save_config(device_info['device_name'], device_info, device_config,
                                                    info['filename'])
-                            self.view.print_ok(f"Configuration of device {device_info['device_name']}"
-                                                   f"correctly saved.")
+                            self.view.print_ok(
+                                f"Configuration of device {device_info['device_name']} correctly saved.")
                     case 6:
                         # Subnetting
                         try:

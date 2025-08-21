@@ -1,36 +1,42 @@
-from view.view_parser import parse_error, parse_warning, parse_ok
-from view.router_menu import RouterMenu
+from view_parser import parse_error, parse_warning, parse_ok
+from router_menu import RouterMenu
 
 from os import listdir
 from ipaddress import IPv4Address, IPv4Network
 from typing import Tuple
 import re
-import os
 
 EXIT = -1
 
-MAIN_MENU = ["MAIN MENU", "Add device", "Remove device", "Show network", "Modify config", "Save config", "Subnetting", "Exit"]
+MAIN_MENU = ["MAIN MENU", "Add device", "Remove device", "Show network", "Modify config", "Save config", "Subnetting",
+             "Exit"]
+
 
 class View:
+    """
+    Class responsible for displaying and interacting with the user in a network configuration tool.
+    Provides methods to show menus, gather configuration inputs, manage devices, and perform subnetting.
+    """
+
     def __init__(self):
+        """
+        Initializes a new View instance, including a RouterMenu to handle router-specific configuration menus.
+        """
         self.router_menu = RouterMenu()
-        
-        
+
     def __show_menu__(self, menu: list) -> int:
         """
         Displays a menu from a given list and returns the selected option as an integer.
         If the user selects the last option, the function returns EXIT.
-        
+
         Args:
             menu (list): List containing menu options where the first element is the menu title.
 
         Returns:
             int: The selected menu option or EXIT if the last option is chosen.
         """
-        
-        option = 0
-        
-        while(True):
+
+        while True:
             print(f"\n{menu[0]}\n")
             for i in range(1, len(menu)):
                 print(f"\t{i}. {menu[i]}")
@@ -44,10 +50,8 @@ class View:
                 else:
                     return option
             except ValueError:
-                option = 0
                 print(parse_error("Invalid option."))
-                
-                
+
     def __add_device__(self, devices: list) -> int | dict:
         """
         Prompts the user to add a new device and returns the device information as a dictionary.
@@ -64,7 +68,7 @@ class View:
                 - mgmt_iface (str): The management interface of the device.
                 - mgmt_ip (str): The management IP address of the device.
         """
-        
+
         info = dict()
         '''
         while True:
@@ -89,13 +93,13 @@ class View:
         print("Currently, you can only add routers from an ios platform.")
         info["device_type"] = "R"
         info["platform"] = "ios"
-        
+
         num = 1
         if devices is not None:
             for d in devices:
                 if d["device_type"] == info["device_type"]:
                     num += 1
-            
+
         while True:
             found = 0
             string = input(f"Enter device name (default: {info['device_type']}{num}): ")
@@ -108,11 +112,11 @@ class View:
                         print(parse_error("A device with this name already exists."))
                         found = 1
                         break
-                    
+
                 if not found:
                     info["device_name"] = string
                     break
-            else: 
+            else:
                 info["device_name"] = f"{info['device_type']}{num}"
                 break
 
@@ -163,7 +167,6 @@ class View:
 
             except:
                 print(parse_error("The IP address is not valid."))
-                   
 
         while True:
             string = input(f"Want to add device to a group (Y | N)? ")
@@ -177,9 +180,8 @@ class View:
             elif string.lower() == 'n':
                 break
 
-        return info            
-                
-                
+        return info
+
     def __show_devices__(self, devices: list) -> None:
         """
         Displays a list of devices with their details.
@@ -201,8 +203,7 @@ class View:
 
         for i, d in enumerate(devices, 1):
             print(f"{i:<4}{d['device_name']:<20}{d['device_type']:<8}{d['mgmt_iface']:<20}{d['mgmt_ip']:<15}")
-    
-    
+
     def __get_device_by__(self, devices: list, action: str) -> int | dict:
         """
         Prompts the user to select a device by ID, name, or management IP address and returns the index of the device in the list.
@@ -225,7 +226,7 @@ class View:
         self.__show_devices__(devices)
         if len(devices) == 0:
             return EXIT
-    
+
         while True:
             found = -1
             string = input(f"\n{action} by id, name or management IP address (id | name | IP): ")
@@ -245,7 +246,7 @@ class View:
                                 return info
                         except ValueError:
                             print(parse_error("This id does not exist."))
-                                                
+
                 case "name":
                     while True:
                         string = input("Enter name: ")
@@ -261,7 +262,7 @@ class View:
                             info["action_by"] = "name"
                             info["identification"] = string
                             return info
-                    
+
                 case "ip":
                     while True:
                         string = input("Enter management IP address: ")
@@ -281,15 +282,14 @@ class View:
                                 return info
                         except:
                             print(parse_error("The IP address is not valid."))
-                    
+
                 case "exit":
                     print(parse_warning("Exit detected, operation not completed."))
                     return EXIT
-                
+
                 case _:
                     print(parse_error("Invalid option."))
-    
-    
+
     def __remove_device__(self, devices: list) -> int | dict:
         """
         Prompts the user to select a device to remove and returns the index of the device in the list.
@@ -307,10 +307,9 @@ class View:
                     - name: str
                     - mgmt_ip: IPv4Address
         """
-        
+
         return self.__get_device_by__(devices, "Delete")
-                 
-    
+
     def __show_network__(self, devices: list) -> None:
         """
         Displays the current network, showing all connected devices.
@@ -318,11 +317,10 @@ class View:
         Args:
             devices (list): List of existing device dictionaries.
         """
-        
-        self.__show_devices__(devices)             
-                 
-                
-    def __modify_config__(self, devices: list) -> int | dict: 
+
+        self.__show_devices__(devices)
+
+    def __modify_config__(self, devices: list) -> int | dict:
         """
         Prompts the user to select a device to configure and returns the index of the device in the list.
         If the user exits, the function returns EXIT.
@@ -339,10 +337,9 @@ class View:
                     - name: str
                     - mgmt_ip: IPv4Address
         """
-          
+
         return self.__get_device_by__(devices, "Config")
-    
-    
+
     def __ask_subnetting__(self) -> int | dict:
         """
         Prompts the user for subnetting details and returns the information as a dictionary.
@@ -355,11 +352,11 @@ class View:
                 - num_networks (int): The number of subnets.
                 - list_num_devices (list): List of the number of devices per subnet.
         """
-        
+
         info = dict()
         while True:
             string = input("Enter network: ")
-            
+
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
@@ -367,13 +364,13 @@ class View:
                 ip = IPv4Network(string)
                 network_addr = string
                 break
-                
+
             except ValueError:
                 print(parse_error("Invalid network address."))
-                
+
         while True:
             string = input("Enter netmask: ")
-            
+
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
@@ -383,13 +380,13 @@ class View:
                 network = IPv4Network(f"{network_addr}/{string}", strict=False)
                 info["network"] = network
                 break
-                
+
             except ValueError:
                 print(parse_error("Invalid network mask for network address."))
-            
+
         while True:
             string = input("Enter number of networks: ")
-            
+
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
                 return EXIT
@@ -399,13 +396,13 @@ class View:
                 break
             except ValueError:
                 print(parse_error("Invalid number."))
-        
+
         info["list_num_devices"] = list()
-                
+
         for i in range(info["num_networks"]):
             while True:
                 string = input(f"Enter number of devices in network {i + 1}: ")
-                
+
                 if string.lower() == "exit":
                     print(parse_warning("Exit detected, operation not completed."))
                     return EXIT
@@ -415,10 +412,21 @@ class View:
                     break
                 except ValueError:
                     print(parse_error("Invalid number."))
-                    
+
         return info
-    
+
     def __save_config__(self, devices: list) -> int | dict:
+        """
+        Prompts the user to choose whether to save the configuration of all devices or a specific one.
+        Allows setting the filename where the configuration should be saved.
+
+        Args:
+            devices (list): List of device dictionaries.
+
+        Returns:
+            int: EXIT if the user exits during input.
+            dict: Dictionary containing the device to save ('all' or a device selector dict) and filename.
+        """
         print("Configuration is saved in the db/ directory, file must be .json.")
         print(parse_warning("If filename exists and there is saved configuration, configuration\n"
                             "will be overwritten. If filename does not exist, it will be created."))
@@ -432,7 +440,7 @@ class View:
                     info['device'] = "all"
                     break
                 case "n":
-                    info ['device'] = self.__get_device_by__(devices, "Save config")
+                    info['device'] = self.__get_device_by__(devices, "Save config")
                     if info['device'] == EXIT:
                         return EXIT
                     else:
@@ -449,7 +457,6 @@ class View:
                 else:
                     info['filename'] = string
                     return info
-                    
 
     def display_subnetting(self, info: dict, subnets: list) -> None:
         """
@@ -482,15 +489,14 @@ class View:
             print(f"  Last Host       : {last_host}")
             print(f"  Total Usable IPs: {subnet.num_addresses - 2}\n\n")
 
-
     def start_menu(self) -> Tuple[int, dict]:
         """
-        Displays a menu to prompt the user for necessary configuration details, including a username, password, 
-        and the option to load a hosts file. The function returns 0 if no configuration file is loaded, 
+        Displays a menu to prompt the user for necessary configuration details, including a username, password,
+        and the option to load a hosts file. The function returns 0 if no configuration file is loaded,
         and 1 if a configuration file is successfully loaded.
 
-        This method handles user input for setting up default credentials and allows the user to choose 
-        whether to load a configuration file from the 'db/' directory. If the file exists, the function 
+        This method handles user input for setting up default credentials and allows the user to choose
+        whether to load a configuration file from the 'db/' directory. If the file exists, the function
         returns 1 and sets the filename in the provided `info` dictionary. If no file is loaded, it returns 0.
 
         Returns:
@@ -501,17 +507,17 @@ class View:
         info["defaults"] = dict()
         path = "db/"
         string = ""
-        
+
         # Get information for defaults file in inventory
         while not string:
             string = input("Enter username: ")
         info["defaults"]["username"] = string
-        
+
         string = ""
         while not string:
             string = input("Enter password: ")
         info["defaults"]["password"] = string
-        
+
         while True:
             option = input("Do you want to load a hosts file (Y | N)? ")
             if option:
@@ -534,11 +540,10 @@ class View:
                             except IOError:
                                 # Filename not found
                                 print(parse_error(f"Could not find file {string} in {path}."))
-                            
+
                     case 'n':
-                        return 0, info   
-                
-    
+                        return 0, info
+
     # If return is -1, exit program, if option is 0 do nothing, if option is number do option
     def main_menu(self, devices: list) -> Tuple[int, dict]:
         option = self.__show_menu__(MAIN_MENU)
@@ -549,7 +554,7 @@ class View:
                 info = self.__add_device__(devices)
                 if info == EXIT:
                     option = 0
-                                    
+
             case 2:
                 # Remove device
                 info = self.__remove_device__(devices)
@@ -558,13 +563,13 @@ class View:
 
             case 3:
                 self.__show_network__(devices)
-            
+
             case 4:
                 # Configure device
                 info = self.__modify_config__(devices)
                 if info == EXIT:
                     option = 0
-            
+
             case 5:
                 # Save config
                 info = self.__save_config__(devices)
@@ -578,21 +583,54 @@ class View:
                     option = 0
 
         return option, info
-    
-    
+
     def goodbye(self) -> None:
+        """
+        Prints a farewell message to the user.
+        """
         print("\n\nGOODBYE!\n")
-        
+
     def print_error(self, msg: str) -> None:
+        """
+        Prints a formatted error message.
+
+        Args:
+            msg (str): The error message to display.
+        """
         print(parse_error(msg))
 
     def print_warning(self, msg: str) -> None:
+        """
+        Prints a formatted warning message.
+
+        Args:
+            msg (str): The warning message to display.
+        """
         print(parse_warning(msg))
 
     def print_ok(self, msg: str) -> None:
+        """
+        Prints a formatted success (OK) message.
+
+        Args:
+            msg (str): The success message to display.
+        """
         print(parse_ok(msg))
 
     def ask_change_device_name(self, name_config: str, device_name: str) -> bool:
+        """
+        Prompts the user whether to change the current device name to match the hostname in the configuration.
+
+
+        Args:
+        name_config (str): The hostname from the configuration file.
+        device_name (str): The current name of the device.
+
+
+        Returns:
+        bool: True if the user agrees to change the name, False otherwise.
+        """
+
         while True:
             string = input(parse_warning(f"Device hostname in its configuration ({name_config}) is different to the "
                                          f"device name you have\n provided ({device_name}). Want to change it to the "

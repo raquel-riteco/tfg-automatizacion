@@ -1,4 +1,3 @@
-
 from view.view_parser import parse_error, parse_warning
 
 DEV_BASIC_CONFIG = ["DEVICE BASIC CONFIG MENU", "Device name", "IP domain lookup", "Add user", "Remove user",
@@ -8,9 +7,25 @@ DEV_SECURITY_CONFIG = ["DEVICE SECURITY CONFIG MENU", "Encrypt passwords", "Cons
 
 EXIT = -1
 
+
 class DeviceMenu:
+    """
+    Class for displaying and managing device configuration menus.
+
+    This class provides interactive CLI menus for configuring various
+    aspects of a network device including basic settings, user management,
+    banner MOTD, security options like password encryption, console and VTY access,
+    and saving the running configuration.
+
+    All menu actions are initiated through user input and return either EXIT to abort
+    or a dictionary with configuration data.
+    """
 
     def __init__(self) -> None:
+        """
+        Initializes an instance of DeviceMenu. This class is responsible for presenting and managing user input
+        related to device configuration via a text-based menu interface.
+        """
         pass
 
     #### PRIVATE FUNCTIONS ####
@@ -46,7 +61,6 @@ class DeviceMenu:
                 option = 0
                 print(parse_error("Invalid option."))
 
-
     def __show_current_users__(self, device: dict) -> None:
         """
         Displays the current users on a given device.
@@ -54,7 +68,7 @@ class DeviceMenu:
         Args:
             device (dict): Dictionary containing device information, including:
                 - device_name (str): The name of the device.
-                - usernames (list): List of usernames on the device.
+                - usernames (list): List of current users as dictionaries.
         """
 
         print(f"Current users in device: {device['device_name']}")
@@ -169,7 +183,7 @@ class DeviceMenu:
 
         Args:
             device (dict): The current device information.
-                - usernames": list  # List of current usernames
+                - "users": list  # List of current users
 
         Returns:
             int: EXIT if the operation is exited.
@@ -201,7 +215,6 @@ class DeviceMenu:
         info["password"] = input("Enter password: ")
 
         while True:
-            found = 0
             string = input("Enter user's privilege: ")
             if string.lower() == "exit":
                 print(parse_warning("Exit detected, operation not completed."))
@@ -219,12 +232,12 @@ class DeviceMenu:
 
         Args:
             device (dict): The current device information.
-                - "usernames": list  # List of current usernames
+                - "users": list  # List of current users
 
         Returns:
             int: EXIT if the operation is exited.
             dict: Information of the user to be removed.
-                - "remove_pos": int  # Position of the user to be removed in the usernames list
+                - "username_delete": int  # User to be removed in the usernames list
         """
 
         info = dict()
@@ -294,14 +307,14 @@ class DeviceMenu:
             elif string.lower() == 'n' or string.lower() == 'exit':
                 return EXIT
 
-
     def device_encrypt_passwd(self, device: dict) -> int | dict:
         """
         Change the password encryption state of the device.
 
         Args:
             device (dict): The current device information.
-                - "password_encryption": bool  # Current password encryption state
+                - "security": dict containing security information
+                    -- "password_encryption": bool  # Current password encryption state
 
         Returns:
             int: EXIT if the operation is exited.
@@ -347,7 +360,8 @@ class DeviceMenu:
 
         Args:
             device (dict): The current device information.
-                - "console_access": str  # Current console access method ("local_database", "password")
+                - "security": dict containing security information
+                    -- "console_access": str  # Current console access method ("local_database", "password")
 
         Returns:
             int: EXIT if the operation is exited.
@@ -415,12 +429,13 @@ class DeviceMenu:
 
         Args:
             device (dict): The current device information.
-                - "vty_protocols": str     # Current VTY protocols ("ssh", "both")
+                - "security": dict containing security information
+                    -- "vty_protocols": list     # Current VTY protocols
 
         Returns:
             int: EXIT if the operation is exited.
             dict: Updated VTY access and/or protocol configuration.
-                - "vty_protocols": str     # New VTY protocols ("ssh", "both")
+                - "vty_protocols": list
         """
 
         info = dict()
@@ -462,15 +477,14 @@ class DeviceMenu:
                     case _:
                         print(parse_error("Invalid option."))
 
-
-
     def device_enable_passwd(self, device: dict) -> int | dict:
         """
         Change the enable password of the device.
 
         Args:
             device (dict): The current device information.
-                - "enable_passwd": str  # Current enable password
+                - "security": dict containing security information
+                    -- "enable_passwd": str  # Current enable password
 
         Returns:
             int: EXIT if the operation is exited.
@@ -515,6 +529,10 @@ class DeviceMenu:
         """
         Change the interface description.
 
+        Args:
+            description (str): Current description of the interface.
+            info (dict): Dictionary to store updated interface information.
+
         Returns:
             int: EXIT if the operation is exited.
             dict: Updated interface description.
@@ -534,10 +552,13 @@ class DeviceMenu:
                 info["description"] = string
                 return info
 
-
     def device_iface_shutdown(self, is_up: bool, info: dict) -> int | dict:
         """
         Shutdown or activate an interface.
+
+        Args:
+            is_up (bool): Current state of the interface.
+            info (dict): Dictionary to store updated interface state.
 
         Returns:
             int: EXIT if the operation is exited.
@@ -571,3 +592,4 @@ class DeviceMenu:
                         return EXIT
                     case _:
                         print(parse_error("Invalid option."))
+
