@@ -1,0 +1,16 @@
+{
+    "R4-c7200": {
+        "inventory": {
+            "hostname": "192.168.174.201",
+            "platform": "ios",
+            "groups": []
+        },
+        "connect": {
+            "device_type": "R",
+            "device_name": "R4-c7200",
+            "mgmt_ip": "192.168.174.201",
+            "mgmt_iface": "GigabitEthernet0/0"
+        },
+        "config": {}
+    }
+}

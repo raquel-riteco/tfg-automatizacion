@@ -1,0 +1,61 @@
+{
+    "R1": {
+        "inventory": {
+            "hostname": "192.168.1.1",
+            "groups": [
+                "routers"
+            ]
+        },
+        "connect": {
+            "device_type": "router",
+            "device_name": "R1",
+            "mgmt_ip": "192.168.1.1",
+            "mgmt_iface": "f0/1"
+        },
+        "config": {
+
+        }
+    },
+    "R2": {
+        "inventory": {
+            "hostname": "192.168.1.2",
+            "groups": [
+                "routers"
+            ]
+        },
+        "connect": {
+
+        },
+        "config": {
+            
+        }
+    },
+    "SW1": {
+        "inventory": {
+            "hostname": "192.168.1.10",
+            "groups": [
+                "routers"
+            ]
+        },
+        "connect": {
+
+        },
+        "config": {
+            
+        }
+    },
+    "SW2": {
+        "inventory": {
+            "hostname": "192.168.1.11",
+            "groups": [
+                "routers"
+            ]
+        },
+        "connect": {
+
+        },
+        "config": {
+            
+        }
+    }
+}

@@ -1,0 +1,4 @@
+R4-c7200:
+  groups: []
+  hostname: 192.168.174.201
+  platform: ios
