@@ -6,28 +6,47 @@ from netmiko import ConnectHandler
 import re
 from ipaddress import IPv4Address, IPv4Network
 
+
 class Connector:
+    """
+    This class handles interactions with Cisco network devices for:
+    - Extracting configuration and device info using Nornir and NAPALM
+    - Parsing configuration via CiscoConfParse
+    - Pushing configurations using Netmiko
+    """
+
     def __init__(self):
+        """
+        Initializes the connector by disabling Loguru default logging.
+        """
         logger.remove()
-      
+
     def get_device_info(self, connect_info: dict) -> dict:
         """
-        Retrieves the running configuration of the device matching the given IP address.
-        Params:
-            connect_info (dict): Dictionary with connection data, must include 'device_name'.
-        Returns:
-            dict: Dictionary with the running configuration, or empty if not found.
-        """
+        Retrieves and parses device configuration to extract detailed metadata.
 
+        Args:
+            connect_info (dict): Connection details for the device. Must include:
+                - 'device_name' (str)
+                - 'device_type' (str)
+
+        Returns:
+            dict: A dictionary representing the device's configuration and status, including:
+                - Basic device info (hostname, banner, users, etc.)
+                - Security settings
+                - Interfaces (with OSPF and HSRP data)
+                - DHCP pools and exclusions
+                - Routing processes (OSPF, static)
+
+        Raises:
+            RuntimeError: If the NAPALM task fails.
+        """
         device_info = dict()
 
         nr = InitNornir(config_file="config/config.yaml")
-
         target = nr.filter(name=connect_info["device_name"])
-
         result = target.run(task=napalm_get, getters=["config"])
         hostname = list(target.inventory.hosts.keys())[0]
-
         task_result = result[hostname]
 
         if task_result.failed:
@@ -304,7 +323,8 @@ class Connector:
                     if 'network' in child.text:
                         net = child.text.split(' ')
                         if net:
-                            networks.append({"network": IPv4Network(f'{net[2]}/{net[3]}'), "network_area": int(net[5])})
+                            networks.append(
+                                {"network": IPv4Network(f'{net[2]}/{net[3]}'), "network_area": int(net[5])})
 
                 router_id = next(
                     (c.re_match_iter_typed(r'^\s*router-id\s+(\S+)', default=None) for c in ospf.children
@@ -350,6 +370,19 @@ class Connector:
         return device_info
 
     def push_config_with_netmiko(self, host: str, access_data: dict, config_lines: list) -> str:
+        """
+        Pushes configuration commands to a Cisco IOS device using Netmiko.
+
+        Supports interactive confirmation (e.g. for deleting users).
+
+        Args:
+            host (str): Device IP or hostname.
+            access_data (dict): Credentials with keys 'username' and 'password'.
+            config_lines (list): List of CLI configuration lines to be sent.
+
+        Returns:
+            str: The full output from the configuration commands.
+        """
         device = {
             "device_type": "cisco_ios",
             "host": host,
@@ -358,21 +391,20 @@ class Connector:
         }
 
         conn = ConnectHandler(**device)
-
         output_chunks = []
 
         conn.config_mode()
 
         for cmd in config_lines:
             # Deleting a user can trigger "Do you want to continue? [confirm]"
-            if re.search(r"^\s*no\s+username\s+\S+", cmd, flags=re.I):
+            if re.search(r"^\\s*no\\s+username\\s+\\S+", cmd, flags=re.I):
                 out = conn.send_command_timing(
                     cmd,
                     read_timeout=30,
                     strip_prompt=False,
                     strip_command=False,
                 )
-                if re.search(r"\[confirm\]", out, flags=re.I):
+                if re.search(r"\\[confirm\\]", out, flags=re.I):
                     out += conn.send_command_timing(
                         "\n",
                         read_timeout=30,
@@ -396,3 +428,4 @@ class Connector:
         conn.disconnect()
 
         return "\n".join(output_chunks)
+

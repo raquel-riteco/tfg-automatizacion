@@ -1,4 +1,3 @@
-
 from typing import List
 from ipaddress import IPv4Address
 from nornir import InitNornir
@@ -9,9 +8,28 @@ from ciscoconfparse import CiscoConfParse
 from model.security import Security
 from model.interface import normalize_iface
 
+
 class Device:
+    """
+    Represents a generic network device with basic configuration and verification capabilities.
+
+    This class provides an abstraction to apply, verify, and retrieve configuration for a device,
+    specifically focusing on basic settings, user management, banner, security parameters, and VTY settings.
+    """
     def __init__(self, device_name: str, mgmt_ip: IPv4Address, mgmt_iface: str, security: dict = None,
                  users: List[dict] = None, banner: str = None, ip_domain_lookup: bool = False):
+        """
+        Initialize a Device instance with basic and security parameters.
+
+        Args:
+            device_name (str): Hostname of the device.
+            mgmt_ip (IPv4Address): Management IP address.
+            mgmt_iface (str): Management interface name.
+            security (dict, optional): Security-related configuration.
+            users (List[dict], optional): List of local user accounts.
+            banner (str, optional): MOTD banner.
+            ip_domain_lookup (bool): Whether IP domain-lookup is enabled.
+        """
         self.security = Security(security["is_encrypted"], security["console_access"],
                                  security['enable_by_password'], security["vty_protocols"])
         self.device_name = device_name
@@ -23,7 +41,12 @@ class Device:
 
 
     def update(self, config_info: dict) -> None:
+        """
+        Updates the internal state of the device with new configuration values.
 
+        Args:
+            config_info (dict): Dictionary containing updated values to apply.
+        """
         if 'device_name' in config_info: self.device_name = config_info['device_name']
         if 'ip_domain_lookup' in config_info: self.ip_domain_lookup = config_info['ip_domain_lookup']
         if 'username' in config_info:
@@ -39,6 +62,12 @@ class Device:
 
 
     def get_device_info(self) -> dict:
+        """
+        Returns a summary of the device's configuration and state.
+
+        Returns:
+            dict: A dictionary containing hostname, IP, interface, security, users, banner, etc.
+        """
         device_info = dict()
         device_info["device_name"] = self.device_name
         device_info["mgmt_iface"] = self.mgmt_iface
@@ -57,6 +86,12 @@ class Device:
         return device_info
 
     def get_config(self) -> dict:
+        """
+        Returns the current intended configuration of the device (not the actual running config).
+
+        Returns:
+            dict: Configuration fields relevant for pushing to the device.
+        """
         device_config = dict()
 
         security = self.security.get_config()
@@ -158,7 +193,15 @@ class Device:
         return results
 
     def config(self, configuration: dict) -> list:
+        """
+        Generates configuration commands based on the provided configuration dictionary.
 
+        Args:
+            configuration (dict): The intended configuration values.
+
+        Returns:
+            list: A list of CLI command strings to be sent to the device.
+        """
         nr = InitNornir(config_file="config/config.yaml")
         target = nr.filter(name=self.device_name)
 
@@ -220,6 +263,12 @@ class Device:
         return config_lines
 
     def save_config(self) -> bool:
+        """
+        Saves the current running configuration to startup configuration on the device.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
         nr = InitNornir(config_file="config/config.yaml")
         target = nr.filter(name=self.device_name)
 
@@ -229,3 +278,4 @@ class Device:
             return False
         else:
             return True
+

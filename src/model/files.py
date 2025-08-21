@@ -1,7 +1,13 @@
 import yaml
 import json
 
+
 class Files:
+    """
+    Handles file operations for reading/writing YAML and JSON configurations,
+    managing device information, and updating Nornir inventory files.
+    """
+
     def __init__(self):
         pass
       
@@ -9,7 +15,7 @@ class Files:
         """
         Reads a YAML file and returns its contents as a dictionary.
 
-        Parameters:
+        Args:
             filename (str): The path to the YAML file to read.
 
         Returns:
@@ -23,12 +29,10 @@ class Files:
         """
         Writes a dictionary to a YAML file.
 
-        Parameters:
+        Args:
             filename (str): The path to the YAML file to write.
             info (dict): The data to write to the YAML file.
 
-        Returns:
-            None
         """
         with open(filename, 'w') as file:
             yaml.safe_dump(info, file)
@@ -38,7 +42,7 @@ class Files:
         """
         Reads a JSON file and returns its contents as a dictionary.
 
-        Parameters:
+        Args:
             filename (str): The path to the JSON file to read.
 
         Returns:
@@ -55,12 +59,9 @@ class Files:
         """
         Writes a dictionary to a JSON file.
 
-        Parameters:
+        Args:
             filename (str): The path to the JSON file to write.
-            data (dict): The data to write to the JSON file.
-
-        Returns:
-            None
+            info (dict): The data to write to the JSON file.
         """
         with open(filename, 'w') as file:
             json.dump(info, file, indent=4)
@@ -71,18 +72,13 @@ class Files:
         Clears all contents of the inventory files and
         saves the configuration username and password into he inventory/defaults file
 
-        Parameters:
+        Args:
             info (dict): configuration's username and password
 
-        Returns:
-            None
         """
-        with open("inventory/groups.yaml", 'w') as file:
-            pass 
-        with open("inventory/hosts.yaml", 'w') as file:
-            pass 
-        with open("inventory/defaults.yaml", 'w') as file:
-            pass
+        with open("inventory/groups.yaml", 'w'): pass
+        with open("inventory/hosts.yaml", 'w'): pass
+        with open("inventory/defaults.yaml", 'w'): pass
 
         self.__write_yaml__("inventory/defaults.yaml", info)
         
@@ -125,14 +121,34 @@ class Files:
         return info
 
     def get_user_and_pass(self) -> dict:
+        """
+        Retrieves default login credentials from inventory/defaults.yaml.
+
+        Returns:
+            dict: Dictionary with 'username' and 'password'.
+        """
         return self.__read_yaml__("inventory/defaults.yaml")
 
     def modify_name_in_hosts(self, prev_name: str, new_name: str) -> None:
+        """
+        Renames a device entry in inventory/hosts.yaml.
+
+        Args:
+            prev_name (str): Old device name.
+            new_name (str): New device name.
+        """
         data = self.__read_yaml__("inventory/hosts.yaml")
         data[new_name] = data.pop(prev_name)
         self.__write_yaml__("inventory/hosts.yaml", data)
 
     def add_device_to_hosts_if_not_exists(self, device_info: dict) -> None:
+        """
+        Adds a new device to inventory/hosts.yaml if not already present.
+        Also updates groups if a group is specified.
+
+        Args:
+            device_info (dict): Device data with keys like device_name, mgmt_ip, platform, group.
+        """
         devices = self.__read_yaml__("inventory/hosts.yaml")
         if devices is None:
             devices = dict()
@@ -163,6 +179,15 @@ class Files:
 
 
     def save_config(self, device_name: str, device_info: dict, device_config: dict, filename: str) -> None:
+        """
+        Saves the configuration and connection info of a device to a file in the db/ folder.
+
+        Args:
+            device_name (str): Name of the device.
+            device_info (dict): Device attributes and connection data.
+            device_config (dict): Configuration data.
+            filename (str): Filename (without path) for saving under db/.
+        """
         try:
             data = self.__read_json__(f"db/{filename}")
         except FileNotFoundError:
@@ -184,3 +209,4 @@ class Files:
         data[device_name]['config'] = device_config
 
         self.__write_json__(f"db/{filename}", data)
+

@@ -1,11 +1,11 @@
 from ipaddress import IPv4Network
+import ipaddress as ip
 from typing import Tuple
 
 from model.interface import normalize_iface
-
 from view.device_menu import DeviceMenu
 from view.view_parser import parse_error, parse_warning
-import ipaddress as ip
+
 
 R_CONFIG_MENU = ["ROUTER CONFIG MENU", "Basic config", "L3 iface config", "Redundancy config (HSRP)",
                  "Routing config", "DHCP config", "Exit"]
@@ -21,18 +21,23 @@ R_ROUTING_OSPF_PROCESS = ["ROUTER CONFIG ROUTING OSPF", "Config auto-cost refere
 
 EXIT = -1
 
+
 class RouterMenu(DeviceMenu):
     """
-    Menu handler for router configuration. Supports configuration of:
-    - Basic device settings
-    - Layer 3 interfaces
-    - Redundancy with HSRP
-    - Static and OSPF routing
-    - DHCP settings
-
-    Provides interactive CLI for configuration and validates user input.
+    RouterMenu provides a full command-line interface for configuring routers in a simulated network environment.
+    This class extends DeviceMenu and includes menus and logic to configure:
+        - Basic router parameters (hostname, domain, users, banner, security)
+        - Layer 3 interfaces (IP settings, subinterfaces, descriptions, shutdown)
+        - HSRP redundancy settings
+        - Routing protocols (static routing and OSPF including interfaces and process parameters)
+        - DHCP configuration (helper addresses, excluded addresses, DHCP pools)
+    All inputs are validated, and the user can exit at any time.
     """
     def __init__(self):
+        """
+        Initializes a new RouterMenu instance, inheriting from DeviceMenu.
+        Sets up the router configuration structure and menus.
+        """
         super().__init__()
 
     #### PRIVATE FUNCTIONS ####

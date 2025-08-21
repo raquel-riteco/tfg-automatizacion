@@ -12,10 +12,37 @@ from model.routing_process import RoutingProcess
 from model.dhcp import DHCP
 from model.interface import normalize_iface
 
+
 class Router(Device):
+    """
+    Router class representing a network router device.
+
+    Inherits from the Device class and extends it with:
+        - Layer 3 interface configuration
+        - DHCP setup and exclusions
+        - Routing configuration (OSPF, static)
+
+    This class supports dynamic configuration generation and verification
+    using parsed information from Cisco IOS running-config outputs.
+    """
     def __init__(self, device_name: str, ip_mgmt: IPv4Address, iface_mgmt: str, security: dict, interfaces: List[dict],
                  users: List[dict] = None, banner: str = None, ip_domain_lookup: bool = False,
                  dhcp: dict = None, routing_process: dict = None):
+        """
+        Initializes the Router object with provided configuration and component objects.
+
+        Args:
+            device_name (str): Router hostname.
+            ip_mgmt (IPv4Address): Management IP.
+            iface_mgmt (str): Management interface.
+            security (dict): Security config dict.
+            interfaces (List[dict]): List of interface configs.
+            users (List[dict], optional): List of user entries.
+            banner (str, optional): MOTD banner.
+            ip_domain_lookup (bool, optional): Enable/disable DNS lookup.
+            dhcp (dict, optional): DHCP configuration dict.
+            routing_process (dict, optional): Routing process config.
+        """
         super().__init__(device_name, ip_mgmt, iface_mgmt, security, users, banner, ip_domain_lookup)
         self.interfaces = []
         for interface in interfaces:
@@ -25,9 +52,21 @@ class Router(Device):
             self.interfaces.append(new_interface)
         self.routing_process = RoutingProcess(routing_process["ospf_processes"], routing_process["static_routes"])
         self.dhcp = DHCP(dhcp["pools"], dhcp["excluded_address"])
-        
-        
+
+
     def update(self, config_info: dict) -> None:
+        """
+        Update the router configuration state based on a configuration dictionary.
+
+        Applies updates to:
+            - The router base configuration (name, security, etc.)
+            - Specific interfaces (single or multiple)
+            - Routing process settings (OSPF/static)
+            - DHCP settings (pools, exclusions)
+
+        Args:
+            config_info (dict): Configuration fields and values to update the internal router state.
+        """
         super().update(config_info)
 
         if 'iface' in config_info:
@@ -48,6 +87,20 @@ class Router(Device):
         self.dhcp.update(config_info)
 
     def get_device_info(self) -> dict:
+        """
+        Collect the current operational information from the router.
+
+        Returns a dictionary representing the full state of the router, including:
+            - Device identity and platform
+            - Management interface and IP
+            - Users, banner, security settings
+            - All configured L3 interfaces
+            - Routing (OSPF/static) configuration
+            - DHCP configuration (pools, excluded addresses)
+
+        Returns:
+        dict: Complete router info as expected by higher-level logic/UI.
+        """
         device_info = super().get_device_info()
         device_info["device_type"] = "R"
 
@@ -65,6 +118,18 @@ class Router(Device):
         return device_info
 
     def get_config(self) -> dict:
+        """
+        Extract the current intended configuration that can be pushed/applied to the router.
+
+        Returns a dictionary with all configured parameters, including:
+            - Device name, users, encryption, banner, etc.
+            - Interfaces (excluding management interface)
+            - DHCP configuration (only if present)
+            - Routing configuration (only if present)
+
+        Returns:
+            dict: The router's full configuration dictionary
+        """
         device_config = super().get_config()
 
         interfaces = list()
@@ -87,6 +152,18 @@ class Router(Device):
 
 
     def config(self, configuration: dict) -> list:
+        """
+        Verifies whether the intended configuration has been correctly applied to the router.
+        Inherits base checks from Device and adds validation for interface, DHCP,
+        static routing and OSPF using CiscoConfParse.
+
+        Args:
+            configuration (dict): The configuration dictionary.
+
+        Returns:
+            dict: Dictionary with boolean results per configuration item.
+        """
+
         # BASIC AND SECURITY CONFIG
         config_lines = super().config(configuration)
 
@@ -435,3 +512,4 @@ class Router(Device):
                     )
 
         return results
+
